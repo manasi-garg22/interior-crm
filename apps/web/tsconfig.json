@@ -1,0 +1,82 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    /* Pinned so tsc does not walk up to C:\Users\mgarg\node_modules. */
+    "typeRoots": [
+      "../../node_modules/@types",
+      "./node_modules/@types"
+    ],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": [
+        "./*"
+      ],
+      "@crm/config": [
+        "../../packages/config/src/index.ts"
+      ],
+      "@crm/config/*": [
+        "../../packages/config/src/*"
+      ],
+      "@crm/types": [
+        "../../packages/types/src/index.ts"
+      ],
+      "@crm/validation": [
+        "../../packages/validation/src/index.ts"
+      ],
+      "@crm/database": [
+        "../../packages/database/src/index.ts"
+      ],
+      "@crm/storage": [
+        "../../packages/integrations/storage/src/index.ts"
+      ],
+      "@crm/email": [
+        "../../packages/integrations/email/src/index.ts"
+      ],
+      "@crm/whatsapp": [
+        "../../packages/integrations/whatsapp/src/index.ts"
+      ],
+      "@crm/meta": [
+        "../../packages/integrations/meta/src/index.ts"
+      ]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.mts",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "../../packages/**/src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "../../node_modules"
+  ]
+}

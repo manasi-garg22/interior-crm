@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": false,
+
+    /* Strictness. These are the point of using TypeScript at all. */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "exactOptionalPropertyTypes": false,
+    "forceConsistentCasingInFileNames": true,
+
+    /* This repo lives under C:\Users\mgarg, which has its own node_modules.
+       Without an explicit typeRoots, tsc walks up and pulls in unrelated
+       @types from the home directory. Pin resolution to this repo. */
+    "typeRoots": ["./node_modules/@types"],
+
+    "skipLibCheck": true,
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": true,
+    "incremental": true,
+
+    "baseUrl": ".",
+    "paths": {
+      "@crm/config": ["./packages/config/src/index.ts"],
+      "@crm/config/*": ["./packages/config/src/*"],
+      "@crm/types": ["./packages/types/src/index.ts"],
+      "@crm/types/*": ["./packages/types/src/*"],
+      "@crm/validation": ["./packages/validation/src/index.ts"],
+      "@crm/validation/*": ["./packages/validation/src/*"],
+      "@crm/database": ["./packages/database/src/index.ts"],
+      "@crm/database/*": ["./packages/database/src/*"],
+      "@crm/storage": ["./packages/integrations/storage/src/index.ts"],
+      "@crm/email": ["./packages/integrations/email/src/index.ts"],
+      "@crm/whatsapp": ["./packages/integrations/whatsapp/src/index.ts"],
+      "@crm/meta": ["./packages/integrations/meta/src/index.ts"]
+    }
+  },
+  "exclude": ["node_modules", "**/node_modules", "**/dist", "**/.next"]
+}

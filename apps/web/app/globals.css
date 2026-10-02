@@ -1,0 +1,129 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens.
+ *
+ * The public site reads as an architecture practice's portfolio: warm paper,
+ * deep ink, one restrained brass accent, generous whitespace and a serif
+ * display face. No purple gradients, no drop shadows on everything.
+ *
+ * Font stacks are system-resolved rather than fetched from Google Fonts, so
+ * the build never depends on network access and there is no FOUT on first
+ * paint.
+ */
+
+@theme {
+  /* Surfaces — warm, never pure grey */
+  --color-canvas: #f7f5f1;
+  --color-surface: #ffffff;
+  --color-surface-sunken: #efece6;
+
+  /* Ink */
+  --color-ink: #1b1a17;
+  --color-ink-soft: #4a4740;
+  --color-ink-muted: #837e74;
+  --color-ink-inverse: #faf9f7;
+
+  /* Lines */
+  --color-line: #e2ded5;
+  --color-line-strong: #cdc7ba;
+
+  /* Brass accent, used sparingly */
+  --color-accent: #a9714b;
+  --color-accent-hover: #91603e;
+  --color-accent-soft: #f2e8e0;
+
+  /* Status — lead temperature and pipeline states */
+  --color-hot: #c2410c;
+  --color-hot-soft: #ffedd5;
+  --color-warm: #b45309;
+  --color-warm-soft: #fef3c7;
+  --color-cold: #3f6212;
+  --color-cold-soft: #ecfccb;
+  --color-danger: #b42318;
+  --color-danger-soft: #fee4e2;
+  --color-success: #15803d;
+  --color-success-soft: #dcfce7;
+
+  /* Type */
+  --font-display: 'Iowan Old Style', 'Palatino Linotype', Palatino, 'Book Antiqua', Georgia, serif;
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+
+  /* An editorial scale — larger jumps than a default UI ramp */
+  --text-display: 4.5rem;
+  --text-display--line-height: 1.02;
+  --text-display--letter-spacing: -0.03em;
+  --text-hero: 3rem;
+  --text-hero--line-height: 1.06;
+  --text-hero--letter-spacing: -0.025em;
+  --text-title: 2rem;
+  --text-title--line-height: 1.15;
+  --text-title--letter-spacing: -0.02em;
+
+  --radius-card: 2px;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  * {
+    border-color: var(--color-line);
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-canvas);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  /* Visible focus is a requirement, not a preference. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Respect users who have asked for less motion. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+@layer components {
+  /* Editorial eyebrow label above a section heading */
+  .eyebrow {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--color-ink-muted);
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: var(--font-display);
+  }
+
+  /* Hairline rule used between editorial sections */
+  .rule {
+    border-top: 1px solid var(--color-line);
+  }
+}

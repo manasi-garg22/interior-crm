@@ -1,0 +1,613 @@
+// Interior CRM — data model
+//
+// Design note on enums vs. configurable option tables:
+//   * Values the CODE branches on (status, role, property type) are Postgres
+//     enums — type-safe and indexable.
+//   * Values the BUSINESS edits (budget bands, timelines, design styles, room
+//     lists, lost reasons) live in OptionValue and are editable from Settings.
+// This is the line that satisfies "do not hardcode budget values" without
+// giving up type safety where it actually buys something.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────── enums ───────────────────────────
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  SALES_MANAGER
+  SALES_EXECUTIVE
+  DESIGNER
+  VIEWER
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONSULTATION
+  SITE_VISIT
+  DESIGN
+  QUOTATION
+  NEGOTIATION
+  WON
+  LOST
+  ON_HOLD
+}
+
+enum LeadTemperature {
+  HOT
+  WARM
+  COLD
+}
+
+enum LeadSource {
+  INSTAGRAM
+  FACEBOOK
+  GOOGLE
+  WEBSITE
+  WHATSAPP
+  REFERRAL
+  DIRECT
+  OTHER
+}
+
+enum PropertyType {
+  RESIDENTIAL
+  OFFICE
+  RESTAURANT
+  CAFE
+  RETAIL
+  HOTEL
+  COMMERCIAL
+  OTHER
+}
+
+enum PropertyStatus {
+  NEW_PROPERTY
+  UNDER_CONSTRUCTION
+  READY_TO_MOVE
+  EXISTING_SPACE
+  RENOVATION
+}
+
+enum ContactMethod {
+  PHONE
+  WHATSAPP
+  EMAIL
+}
+
+enum ActivityType {
+  LEAD_CREATED
+  STATUS_CHANGED
+  ASSIGNED
+  NOTE_ADDED
+  FOLLOWUP_SCHEDULED
+  FOLLOWUP_COMPLETED
+  DOCUMENT_UPLOADED
+  COMMUNICATION_LOGGED
+  SCORE_CHANGED
+  PROJECT_CREATED
+}
+
+enum FollowUpType {
+  CALL
+  WHATSAPP
+  EMAIL
+  MEETING
+  SITE_VISIT
+}
+
+enum FollowUpStatus {
+  PENDING
+  COMPLETED
+  RESCHEDULED
+  CANCELLED
+}
+
+enum CommChannel {
+  CALL
+  WHATSAPP
+  EMAIL
+  SMS
+  MEETING
+}
+
+enum CommDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum CommStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  READ
+  FAILED
+  LOGGED
+}
+
+enum DocumentCategory {
+  FLOOR_PLAN
+  PROPERTY_PHOTO
+  INSPIRATION
+  EXISTING_DESIGN
+  QUOTATION
+  CONTRACT
+  OTHER
+}
+
+enum ProjectStatus {
+  PLANNING
+  DESIGN
+  EXECUTION
+  COMPLETED
+  CANCELLED
+}
+
+enum OptionSetKey {
+  BUDGET_RANGE
+  TIMELINE
+  DESIGN_STYLE
+  SPACE_REQUIREMENT
+  LOST_REASON
+}
+
+enum OutboxStatus {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+}
+
+// ─────────────────────────── people ──────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  phone        String?
+  passwordHash String
+  role         Role      @default(SALES_EXECUTIVE)
+  isActive     Boolean   @default(true)
+  /// Bumping this invalidates every issued JWT for the user, which is how a
+  /// deactivation or forced password reset revokes a session immediately.
+  tokenVersion Int       @default(0)
+  lastLoginAt  DateTime?
+  managerId    String?
+  manager      User?     @relation("Reports", fields: [managerId], references: [id], onDelete: SetNull)
+  reports      User[]    @relation("Reports")
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  assignedLeads   Lead[]               @relation("LeadAssignee")
+  activities      LeadActivity[]
+  followUpsOwned  FollowUp[]           @relation("FollowUpAssignee")
+  followUpsMade   FollowUp[]           @relation("FollowUpCreator")
+  documents       Document[]
+  communications  Communication[]
+  notifications   Notification[]
+  auditLogs       AuditLog[]
+  resetTokens     PasswordResetToken[]
+  managedProjects Project[]
+
+  @@index([role, isActive])
+  @@index([managerId])
+}
+
+model PasswordResetToken {
+  id String @id @default(cuid())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Only the SHA-256 of the emailed token is stored, so a database leak does
+  /// not hand out working reset links.
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ────────────────────────── customer ─────────────────────────
+
+model Customer {
+  id       String @id @default(cuid())
+  fullName String
+
+  /// Normalized to E.164. This is the deduplication key: a repeat enquiry from
+  /// the same number attaches a new Lead to this Customer instead of creating
+  /// a second customer record.
+  phone          String  @unique
+  phoneRaw       String?
+  whatsappNumber String?
+  /// Nullable and unique — Postgres permits many NULLs under a unique index.
+  email          String? @unique
+
+  city             String?
+  state            String?
+  country          String        @default("India")
+  preferredContact ContactMethod @default(PHONE)
+  firstSource      LeadSource    @default(WEBSITE)
+  notes            String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  leads          Lead[]
+  projects       Project[]
+  documents      Document[]
+  communications Communication[]
+
+  @@index([city])
+  @@index([createdAt])
+  @@index([fullName])
+}
+
+// ──────────────────────────── lead ───────────────────────────
+
+model Lead {
+  id String @id @default(cuid())
+
+  /// Human-facing reference, e.g. LEAD-2026-000421
+  leadNumber String @unique
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+
+  status      LeadStatus      @default(NEW)
+  temperature LeadTemperature @default(COLD)
+  score       Int             @default(0)
+  /// Per-rule contributions, so a salesperson can see WHY a lead scored 85.
+  scoreBreakdown Json?
+
+  source     LeadSource @default(WEBSITE)
+  campaignId String?
+  campaign   Campaign?  @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+  utmContent  String?
+  utmTerm     String?
+  referrerUrl String?
+  landingPath String?
+  /// Hashed, not raw — used for rate limiting and abuse triage only.
+  ipHash      String?
+  userAgent   String?
+
+  assignedToId String?
+  assignedTo   User?     @relation("LeadAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  assignedAt   DateTime?
+
+  /// Drives the "Existing customer — new enquiry" badge.
+  isRepeatEnquiry Boolean @default(false)
+
+  statusChangedAt  DateTime  @default(now())
+  firstContactedAt DateTime?
+  qualifiedAt      DateTime?
+  wonAt            DateTime?
+  lostAt           DateTime?
+  lostReason       String?
+  /// Denormalized from FollowUp so the leads table and dashboard can sort and
+  /// filter on it without a correlated subquery per row.
+  nextFollowUpAt   DateTime?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  requirement    LeadRequirement?
+  activities     LeadActivity[]
+  followUps      FollowUp[]
+  communications Communication[]
+  documents      Document[]
+  project        Project?
+
+  @@index([status, createdAt])
+  @@index([assignedToId, status])
+  @@index([temperature, status])
+  @@index([customerId])
+  @@index([campaignId])
+  @@index([nextFollowUpAt])
+  @@index([createdAt])
+  @@index([source])
+}
+
+/// Per-year counters for gap-free reference numbers. Incremented with an
+/// atomic UPDATE ... RETURNING inside the lead-creation transaction, which is
+/// safe under concurrent submissions in a way that SELECT MAX()+1 is not.
+model LeadCounter {
+  year      Int @id
+  lastValue Int @default(0)
+}
+
+model ProjectCounter {
+  year      Int @id
+  lastValue Int @default(0)
+}
+
+model LeadRequirement {
+  id     String @id @default(cuid())
+  leadId String @unique
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  propertyType      PropertyType
+  propertyTypeOther String?
+  propertyStatus    PropertyStatus
+
+  locationLine   String?
+  city           String?
+  state          String?
+  pincode        String?
+  areaSqft       Int?
+  floors         Int?
+  possessionDate DateTime?
+
+  /// OptionValue keys from the SPACE_REQUIREMENT / DESIGN_STYLE sets.
+  spaceRequirements String[]
+  spaceOther        String?
+  designStyles      String[]
+
+  /// Key plus a snapshot of the band's bounds. If an admin later edits
+  /// "₹10–20 Lakh" to "₹12–22 Lakh", historical leads keep the figures the
+  /// customer actually saw and past analytics stay correct.
+  budgetKey   String?
+  budgetMin   Decimal? @db.Decimal(14, 2)
+  budgetMax   Decimal? @db.Decimal(14, 2)
+  timelineKey String?
+
+  /// "Tell us about your requirements"
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyType])
+  @@index([city])
+}
+
+/// Admin-editable picklists. numericMin/Max and scoreWeight let the scoring
+/// engine read its inputs from configuration instead of hardcoded constants.
+model OptionValue {
+  id         String       @id @default(cuid())
+  setKey     OptionSetKey
+  key        String
+  label      String
+  sortOrder  Int          @default(0)
+  isActive   Boolean      @default(true)
+  numericMin Decimal?     @db.Decimal(14, 2)
+  numericMax Decimal?     @db.Decimal(14, 2)
+  scoreWeight Int?
+  metadata   Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([setKey, key])
+  @@index([setKey, isActive, sortOrder])
+}
+
+model LeadActivity {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  /// Null for system-generated activity (form submission, automated assignment).
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  type        ActivityType
+  title       String
+  description String?
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+
+  @@index([leadId, createdAt])
+  @@index([userId, createdAt])
+  @@index([type])
+}
+
+model FollowUp {
+  id     String @id @default(cuid())
+  leadId String
+  lead   Lead   @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  assignedToId String
+  assignedTo   User   @relation("FollowUpAssignee", fields: [assignedToId], references: [id])
+  createdById  String
+  createdBy    User   @relation("FollowUpCreator", fields: [createdById], references: [id])
+
+  type        FollowUpType   @default(CALL)
+  scheduledAt DateTime
+  status      FollowUpStatus @default(PENDING)
+  notes       String?
+  outcome     String?
+  completedAt DateTime?
+
+  rescheduledFromId String?   @unique
+  rescheduledFrom   FollowUp? @relation("Reschedule", fields: [rescheduledFromId], references: [id], onDelete: SetNull)
+  rescheduledTo     FollowUp? @relation("Reschedule")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([assignedToId, status, scheduledAt])
+  @@index([scheduledAt, status])
+  @@index([leadId])
+}
+
+model Communication {
+  id String @id @default(cuid())
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  leadId     String?
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  channel     CommChannel
+  direction   CommDirection
+  status      CommStatus    @default(LOGGED)
+  templateKey String?
+  subject     String?
+  body        String?
+  /// Provider message id, used to reconcile delivery webhooks.
+  externalId  String?
+  error       String?
+
+  sentById String?
+  sentBy   User?   @relation(fields: [sentById], references: [id], onDelete: SetNull)
+
+  occurredAt DateTime @default(now())
+  metadata   Json?
+
+  @@index([leadId, occurredAt])
+  @@index([customerId, occurredAt])
+  @@index([externalId])
+}
+
+model Document {
+  id String @id @default(cuid())
+
+  leadId     String?
+  lead       Lead?     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  customerId String?
+  customer   Customer? @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  projectId  String?
+  project    Project?  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  category  DocumentCategory @default(OTHER)
+  fileName  String
+  mimeType  String
+  sizeBytes Int
+  /// Object-store key. Binary content never enters PostgreSQL.
+  storageKey String          @unique
+  checksum   String?
+
+  uploadedById String?
+  uploadedBy   User?   @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@index([leadId])
+  @@index([customerId])
+  @@index([projectId])
+}
+
+model Project {
+  id            String @id @default(cuid())
+  projectNumber String @unique
+
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id])
+  /// One lead converts to at most one project.
+  leadId     String?  @unique
+  lead       Lead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  name           String
+  location       String?
+  areaSqft       Int?
+  estimatedValue Decimal?      @db.Decimal(14, 2)
+  status         ProjectStatus @default(PLANNING)
+
+  startDate          DateTime?
+  expectedCompletion DateTime?
+  actualCompletion   DateTime?
+
+  managerId String?
+  manager   User?   @relation(fields: [managerId], references: [id], onDelete: SetNull)
+
+  documents Document[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([customerId])
+}
+
+model Campaign {
+  id   String @id @default(cuid())
+  name String
+  /// Matched against the incoming utm_campaign value.
+  code String @unique
+
+  source    LeadSource
+  medium    String?
+  startDate DateTime?
+  endDate   DateTime?
+  spend     Decimal?   @db.Decimal(14, 2)
+  isActive  Boolean    @default(true)
+
+  leads Lead[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+}
+
+// ───────────────────────── platform ──────────────────────────
+
+/// Transactional outbox. Written inside the same transaction as the lead, so
+/// a notification can never be lost, and a failing integration can never roll
+/// back a customer's submission.
+model OutboxEvent {
+  id          String       @id @default(cuid())
+  type        String
+  payload     Json
+  status      OutboxStatus @default(PENDING)
+  attempts    Int          @default(0)
+  lastError   String?
+  availableAt DateTime     @default(now())
+  processedAt DateTime?
+  createdAt   DateTime     @default(now())
+
+  @@index([status, availableAt])
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type       String
+  title      String
+  body       String?
+  entityType String?
+  entityId   String?
+  readAt     DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId, readAt, createdAt])
+}
+
+model AuditLog {
+  id      String  @id @default(cuid())
+  actorId String?
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  action   String
+  entity   String
+  entityId String
+  before   Json?
+  after    Json?
+  ip       String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId, createdAt])
+  @@index([actorId, createdAt])
+}

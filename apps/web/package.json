@@ -1,0 +1,45 @@
+{
+  "name": "web",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint --max-warnings 0 .",
+    "typecheck": "next typegen && tsc --noEmit"
+  },
+  "dependencies": {
+    "@crm/config": "*",
+    "@crm/database": "*",
+    "@crm/email": "*",
+    "@crm/meta": "*",
+    "@crm/storage": "*",
+    "@crm/types": "*",
+    "@crm/validation": "*",
+    "@crm/whatsapp": "*",
+    "@dnd-kit/core": "^6.3.1",
+    "@dnd-kit/utilities": "^3.2.2",
+    "@hookform/resolvers": "^5.9.1",
+    "@node-rs/argon2": "^2.2.1",
+    "date-fns": "^4.4.0",
+    "libphonenumber-js": "^1.13.14",
+    "next": "16.3.7",
+    "next-auth": "5.0.0-beta.32",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "react-hook-form": "^7.89.0",
+    "sonner": "^2.0.8",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^26.6.3",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "16.3.7",
+    "tailwindcss": "^4",
+    "typescript": "~5.9.3"
+  }
+}
