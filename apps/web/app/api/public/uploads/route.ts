@@ -3,6 +3,7 @@ import {
   ALLOWED_UPLOAD_MIME_TYPES,
   UPLOAD_EXTENSION_BY_MIME,
   getEnv,
+  getPublicEnv,
   type AllowedUploadMimeType,
 } from '@crm/config'
 import { buildStorageKey, getFileStorage } from '@crm/storage'
@@ -25,6 +26,10 @@ export const dynamic = 'force-dynamic'
 const log = logger.child('api.public.uploads')
 
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!getPublicEnv().uploadsEnabled) {
+    return NextResponse.json({ error: 'File uploads are not available yet.' }, { status: 503 })
+  }
+
   const env = getEnv()
   const ipHash = hashIp(clientIpFrom(request.headers))
 

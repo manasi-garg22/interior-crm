@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { can, type Role } from '@crm/config'
+import { can, getPublicEnv, type Role } from '@crm/config'
 import { buildWhatsAppDeepLink } from '@crm/whatsapp'
 import { requireUser } from '@/lib/server/session'
 import { getLeadDetail } from '@/lib/modules/lead/mutations'
@@ -219,7 +219,7 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
 
           <DocumentPanel
             leadId={lead.id}
-            canUpload={can(role, 'document:upload')}
+            canUpload={getPublicEnv().uploadsEnabled && can(role, 'document:upload')}
             documents={lead.documents.map((document) => ({
               id: document.id,
               fileName: document.fileName,

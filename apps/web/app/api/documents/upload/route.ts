@@ -4,6 +4,7 @@ import { requireUserOrThrow } from '@/lib/server/session'
 import { toUserFacingError } from '@/lib/server/errors'
 import { logger } from '@/lib/server/logger'
 import type { DocumentCategory } from '@crm/database'
+import { getPublicEnv } from '@crm/config'
 
 export const dynamic = 'force-dynamic'
 
@@ -20,6 +21,10 @@ const CATEGORIES = [
 ]
 
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!getPublicEnv().uploadsEnabled) {
+    return NextResponse.json({ error: 'File uploads are not available yet.' }, { status: 503 })
+  }
+
   try {
     const user = await requireUserOrThrow()
 

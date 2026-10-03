@@ -44,7 +44,15 @@ const EMPTY_STATE: FormState = {
 
 type Attribution = Record<string, string | undefined>
 
-export function ProjectForm({ options }: { options: ProjectFormOptions }) {
+export function ProjectForm({
+  options,
+  uploadsEnabled = false,
+}: {
+  options: ProjectFormOptions
+  uploadsEnabled?: boolean
+}) {
+  // The upload step is last; drop it entirely while uploads are switched off.
+  const steps = uploadsEnabled ? FORM_STEPS : FORM_STEPS.filter((s) => s.id !== 'uploads')
   const router = useRouter()
   const [step, setStep] = useState(1)
   const [values, setValues] = useState<FormState>(EMPTY_STATE)
@@ -99,12 +107,13 @@ export function ProjectForm({ options }: { options: ProjectFormOptions }) {
         // back-swipe must not cost the lead.
         // eslint-disable-next-line react-hooks/set-state-in-effect
         setValues({ ...EMPTY_STATE, ...parsed.values })
-        setStep(Math.min(Math.max(parsed.step, 1), FORM_STEPS.length))
+        setStep(Math.min(Math.max(parsed.step, 1), steps.length))
       }
     } catch {
       // A corrupt draft is not worth failing over — start fresh.
     }
-  }, [])
+    // steps.length is fixed for the life of the page, so this still runs once.
+  }, [steps.length])
 
   useEffect(() => {
     try {
@@ -157,7 +166,7 @@ export function ProjectForm({ options }: { options: ProjectFormOptions }) {
 
   function goNext(): void {
     if (!validateStep(step)) return
-    setStep((current) => Math.min(current + 1, FORM_STEPS.length))
+    setStep((current) => Math.min(current + 1, steps.length))
   }
 
   function goBack(): void {
@@ -233,11 +242,11 @@ export function ProjectForm({ options }: { options: ProjectFormOptions }) {
     (option) => (option.category ?? 'residential') === spaceCategory,
   )
 
-  const isLastStep = step === FORM_STEPS.length
+  const isLastStep = step === steps.length
 
   return (
     <div className="mx-auto w-full max-w-2xl">
-      <StepIndicator steps={FORM_STEPS} current={step} />
+      <StepIndicator steps={steps} current={step} />
 
       <div className="mt-10 sm:mt-12">
         <h2
@@ -274,7 +283,9 @@ export function ProjectForm({ options }: { options: ProjectFormOptions }) {
           />
         ) : null}
         {step === 5 ? <StepContact values={values} errors={errors} onChange={patch} /> : null}
-        {step === 6 ? <StepUploads uploads={uploads} onChange={setUploads} /> : null}
+        {uploadsEnabled && step === 6 ? (
+          <StepUploads uploads={uploads} onChange={setUploads} />
+        ) : null}
       </div>
 
       {/* Honeypot: positioned off-screen rather than display:none, which some

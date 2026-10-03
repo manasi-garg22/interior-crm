@@ -31,7 +31,7 @@ export default async function StartProjectPage() {
       </header>
 
       <main className="flex-1 px-5 py-10 sm:px-8 sm:py-16">
-        <ProjectForm options={options} />
+        <ProjectForm options={options} uploadsEnabled={env.uploadsEnabled} />
       </main>
 
       <footer className="border-t border-line px-5 py-6 sm:px-8">

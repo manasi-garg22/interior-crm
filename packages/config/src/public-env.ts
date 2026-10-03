@@ -14,6 +14,8 @@ export type PublicEnv = {
   companyAddress: string
   portfolioUrl: string
   instagramUrl: string
+  /** File uploads need object storage (R2/B2). Off until it is configured. */
+  uploadsEnabled: boolean
   turnstileSiteKey: string | undefined
 }
 
@@ -27,6 +29,7 @@ export function getPublicEnv(): PublicEnv {
     companyAddress: process.env.NEXT_PUBLIC_COMPANY_ADDRESS || 'Vadodara, Gujarat',
     portfolioUrl: process.env.NEXT_PUBLIC_PORTFOLIO_URL ?? '',
     instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? '',
+    uploadsEnabled: process.env.NEXT_PUBLIC_UPLOADS_ENABLED === 'true',
     turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || undefined,
   }
 }
