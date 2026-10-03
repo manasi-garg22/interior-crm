@@ -23,20 +23,29 @@ function createClient(): PrismaClient {
   })
 }
 
-function getClient(): PrismaClient {
-  const existing = globalForPrisma.prisma
-  if (existing) return existing
+// Module-level cache: one client per server instance in every environment.
+// Previously production skipped caching entirely, so each property access
+// built a new client — a $transaction opened on one client and its queries
+// ran on another ("Transaction not found").
+let client: PrismaClient | undefined
 
-  const created = createClient()
+function getClient(): PrismaClient {
+  if (client) return client
+
+  // Reuse across dev hot reloads.
+  client = globalForPrisma.prisma ?? createClient()
   if (process.env.NODE_ENV !== 'production') {
-    globalForPrisma.prisma = created
+    globalForPrisma.prisma = client
   }
-  return created
+  return client
 }
 
 export const prisma: PrismaClient = new Proxy({} as PrismaClient, {
-  get(_target, property, receiver) {
-    return Reflect.get(getClient(), property, receiver) as unknown
+  get(_target, property) {
+    const real = getClient()
+    const value = Reflect.get(real, property, real) as unknown
+    // Bind methods to the real client so `this` never points at the proxy.
+    return typeof value === 'function' ? value.bind(real) : value
   },
   has(_target, property) {
     return property in getClient()
