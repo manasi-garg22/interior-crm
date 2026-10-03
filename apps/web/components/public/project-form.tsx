@@ -82,7 +82,16 @@ export function ProjectForm({ options }: { options: ProjectFormOptions }) {
     try {
       const saved = window.sessionStorage.getItem(STORAGE_KEY)
       if (saved) {
-        const parsed = JSON.parse(saved) as { values: FormState; step: number }
+        const parsed = JSON.parse(saved) as {
+          values: FormState
+          step: number
+          startedAt?: number
+        }
+        // Keep the original start time: a restored draft lands on the last
+        // step, and restarting the clock made a quick resubmit look like a bot.
+        if (typeof parsed.startedAt === 'number' && parsed.startedAt < startedAt.current) {
+          startedAt.current = parsed.startedAt
+        }
         // Restoring a draft is the textbook "initialise from a browser-only
         // store after mount" case: sessionStorage does not exist during SSR,
         // and seeding it via a lazy useState initialiser would desynchronise
@@ -99,7 +108,10 @@ export function ProjectForm({ options }: { options: ProjectFormOptions }) {
 
   useEffect(() => {
     try {
-      window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify({ values, step }))
+      window.sessionStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ values, step, startedAt: startedAt.current }),
+      )
     } catch {
       // Private browsing can refuse writes; the form still works.
     }
