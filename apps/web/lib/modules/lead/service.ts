@@ -80,6 +80,15 @@ export async function createLeadFromSubmission(
     isCommercial: isCommercialPropertyType(input.propertyType),
   })
 
+  // Pull read-only lookups outside the transaction — they have no race risk
+  // and keeping them inside would hold the transaction open during Neon's
+  // cold-start latency, causing it to expire before the first write lands.
+  const [campaign, candidates] = await Promise.all([
+    input.utmCampaign ? leadRepo.findCampaignByCodeDirect(input.utmCampaign) : Promise.resolve(null),
+    leadRepo.loadAssignmentCandidatesDirect(),
+  ])
+  const assignedToId = pickAssignee(candidates)
+
   return leadRepo.runInTransaction(async (tx) => {
     const existing = await customerRepo.findForDeduplication(tx, input.phone, input.email)
 
@@ -100,13 +109,6 @@ export async function createLeadFromSubmission(
       : await customerRepo.createCustomer(tx, customerInput)
 
     const isExistingCustomer = existing !== null
-
-    const campaign = input.utmCampaign
-      ? await leadRepo.findCampaignByCode(tx, input.utmCampaign)
-      : null
-
-    const candidates = await leadRepo.loadAssignmentCandidates(tx)
-    const assignedToId = pickAssignee(candidates)
 
     const leadNumber = await leadRepo.nextLeadNumber(tx)
 

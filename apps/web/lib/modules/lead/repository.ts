@@ -143,6 +143,46 @@ export async function findCampaignByCode(
   })
 }
 
+/** Direct (non-transaction) version — safe to call before the transaction opens. */
+export async function findCampaignByCodeDirect(
+  code: string,
+): Promise<{ id: string } | null> {
+  return prisma.campaign.findFirst({
+    where: { code, isActive: true },
+    select: { id: true },
+  })
+}
+
+/** Direct (non-transaction) version — safe to call before the transaction opens. */
+export async function loadAssignmentCandidatesDirect(): Promise<AssignmentCandidate[]> {
+  const users = await prisma.user.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      role: { in: [Role.SALES_EXECUTIVE, Role.SALES_MANAGER] },
+    },
+    select: {
+      id: true,
+      assignedLeads: {
+        where: { status: { in: [...OPEN_LEAD_STATUSES] }, deletedAt: null },
+        select: { assignedAt: true },
+      },
+    },
+  })
+
+  return users.map((user) => {
+    const timestamps = user.assignedLeads
+      .map((lead) => lead.assignedAt?.getTime() ?? 0)
+      .filter((time) => time > 0)
+
+    return {
+      id: user.id,
+      openLeadCount: user.assignedLeads.length,
+      lastAssignedAt: timestamps.length > 0 ? new Date(Math.max(...timestamps)) : null,
+    }
+  })
+}
+
 // ── Read side ───────────────────────────────────────────────
 
 /**
