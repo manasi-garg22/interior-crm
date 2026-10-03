@@ -3,12 +3,12 @@ import { getEnv } from '@crm/config'
 import { dispatchPending } from '@/lib/events/dispatcher'
 import { leadSubmissionSchema } from '@crm/validation'
 import { createLeadFromSubmission } from '@/lib/modules/lead/service'
-
-export const dynamic = 'force-dynamic'
 import { clientIpFrom, getRateLimiter, hashIp } from '@/lib/server/rate-limit'
 import { checkSubmission } from '@/lib/server/spam'
 import { toUserFacingError } from '@/lib/server/errors'
 import { logger } from '@/lib/server/logger'
+
+export const dynamic = 'force-dynamic'
 
 /**
  * The one public write endpoint.
