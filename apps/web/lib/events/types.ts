@@ -14,6 +14,32 @@ export type DomainEventType =
   | 'FOLLOWUP_DUE'
   | 'PROJECT_CREATED'
 
+/** Everything the customer entered, for the owner's new-lead alert. */
+export type LeadAlertDetails = {
+  phone: string
+  whatsappNumber: string | null
+  email: string | null
+  preferredContact: string
+  city: string | null
+  state: string | null
+  locality: string | null
+  pincode: string | null
+  propertyType: string
+  propertyTypeOther: string | null
+  propertyStatus: string
+  areaSqft: number | null
+  floors: number | null
+  possessionDate: string | null
+  spaces: string[]
+  spaceOther: string | null
+  designStyles: string[]
+  budget: string
+  timeline: string
+  notes: string | null
+  source: string
+  utmCampaign: string | null
+}
+
 export type LeadCreatedPayload = {
   leadId: string
   leadNumber: string
@@ -23,6 +49,8 @@ export type LeadCreatedPayload = {
   temperature: 'HOT' | 'WARM' | 'COLD'
   score: number
   isRepeatEnquiry: boolean
+  /** Optional so events queued before this field existed still dispatch. */
+  details?: LeadAlertDetails
 }
 
 export type LeadStatusChangedPayload = {
