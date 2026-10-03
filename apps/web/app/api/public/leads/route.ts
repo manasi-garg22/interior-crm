@@ -67,11 +67,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     })
 
     if (!verdict.ok) {
-      // Deliberately a generic message and a 200-shaped failure would be
-      // worse; a bot learns nothing from this, and a real user never sees it.
       log.warn('submission rejected as spam', { reason: verdict.reason })
       return NextResponse.json(
-        { error: 'We could not verify this submission. Please try again.' },
+        {
+          error: 'We could not verify this submission. Please try again.',
+          _spamReason: verdict.reason,
+          _startedAt: parsed.data.startedAt,
+          _elapsed: parsed.data.startedAt ? (Date.now() - parsed.data.startedAt) / 1000 : null,
+        },
         { status: 400 },
       )
     }

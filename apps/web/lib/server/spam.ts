@@ -26,20 +26,24 @@ export type SpamCheckInput = {
 export type SpamVerdict = { ok: true } | { ok: false; reason: string }
 
 export async function checkSubmission(input: SpamCheckInput): Promise<SpamVerdict> {
+  // Honeypot — catches naive bots that fill every field
   if (input.honeypot) {
     log.warn('honeypot filled', { remoteIp: input.remoteIp })
     return { ok: false, reason: 'honeypot' }
   }
 
-  if (input.startedAt) {
+  // Timing — only enforce if startedAt looks like a real browser timestamp
+  // (not 0, not in the future, not unreasonably old)
+  if (input.startedAt && input.startedAt > 1_000_000_000_000) {
     const elapsedSeconds = (Date.now() - input.startedAt) / 1000
-    // Negative means a clock-skewed or forged timestamp; treat like too-fast.
-    if (elapsedSeconds < MIN_FORM_COMPLETION_SECONDS) {
+    if (elapsedSeconds > 0 && elapsedSeconds < MIN_FORM_COMPLETION_SECONDS) {
       log.warn('form completed implausibly fast', { elapsedSeconds })
       return { ok: false, reason: 'too_fast' }
     }
   }
 
+  // Turnstile — only runs when keys are configured; skipped in dev and when
+  // TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY are absent
   const captcha = await verifyTurnstile(input.turnstileToken, input.remoteIp)
   if (!captcha.ok) return captcha
 
