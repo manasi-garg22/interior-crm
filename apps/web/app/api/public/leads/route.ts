@@ -69,12 +69,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (!verdict.ok) {
       log.warn('submission rejected as spam', { reason: verdict.reason })
       return NextResponse.json(
-        {
-          error: 'We could not verify this submission. Please try again.',
-          _spamReason: verdict.reason,
-          _startedAt: parsed.data.startedAt,
-          _elapsed: parsed.data.startedAt ? (Date.now() - parsed.data.startedAt) / 1000 : null,
-        },
+        { error: 'We could not verify this submission. Please try again.' },
         { status: 400 },
       )
     }
@@ -111,15 +106,8 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (exposed.status >= 500) {
       log.error('lead submission failed', { error })
     }
-    // TEMP: expose raw error in non-production for debugging
-    const isDev = process.env.NODE_ENV !== 'production'
     return NextResponse.json(
-      {
-        error: exposed.message,
-        fieldErrors: exposed.fieldErrors,
-        ...(isDev && { _debug: String(error instanceof Error ? error.stack : error) }),
-        _errorDetail: String(error instanceof Error ? error.message : error),
-      },
+      { error: exposed.message, fieldErrors: exposed.fieldErrors },
       { status: exposed.status },
     )
   }
