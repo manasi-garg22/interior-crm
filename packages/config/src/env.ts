@@ -55,7 +55,7 @@ const serverEnvSchema = z.object({
 
   EMAIL_DRIVER: z.enum(['console', 'resend']).default('console'),
   EMAIL_API_KEY: optionalString,
-  EMAIL_FROM: z.string().default('Interior Studio <noreply@example.com>'),
+  EMAIL_FROM: z.string().default('OMA Designs <noreply@example.com>'),
   SALES_NOTIFICATION_EMAIL: optionalString,
 
   TURNSTILE_SITE_KEY: optionalString,
@@ -64,7 +64,7 @@ const serverEnvSchema = z.object({
   PUBLIC_FORM_RATE_LIMIT_PER_HOUR: z.coerce.number().int().positive().default(5),
   LOGIN_RATE_LIMIT_PER_15MIN: z.coerce.number().int().positive().default(5),
 
-  COMPANY_NAME: z.string().default('Interior Studio'),
+  COMPANY_NAME: z.string().default('OMA Designs'),
   COMPANY_PHONE: z.string().default('+911234567890'),
   COMPANY_WHATSAPP: z.string().default('+911234567890'),
   DEFAULT_COUNTRY: z.string().length(2).default('IN'),

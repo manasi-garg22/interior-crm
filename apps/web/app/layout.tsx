@@ -3,11 +3,11 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: {
-    default: 'Interior Studio — Interior Design & Construction',
-    template: '%s · Interior Studio',
+    default: 'OMA Designs — Interior Design & Construction in Vadodara',
+    template: '%s · OMA Designs',
   },
   description:
-    'Residential and commercial interior design and construction. Considered spaces, delivered end to end.',
+    'OMA Designs — residential and commercial interior design and construction in Vadodara, Gujarat. Considered spaces, delivered end to end.',
   robots: { index: true, follow: true },
 }
 

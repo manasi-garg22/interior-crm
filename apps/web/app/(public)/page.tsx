@@ -1,28 +1,37 @@
 import type { Metadata } from 'next'
 import { getPublicEnv } from '@crm/config'
 import { ButtonLink } from '@/components/ui/button'
-import { ImageSlot } from '@/components/public/image-slot'
+import { Photo } from '@/components/public/photo'
 import { SiteHeader } from '@/components/public/site-header'
 import { SiteFooter } from '@/components/public/site-footer'
 
 export const metadata: Metadata = {
-  title: 'Interior Design & Construction',
+  title: 'Interior Design & Construction in Vadodara',
   description:
-    'Considered interiors for homes, offices, restaurants and retail. Design, execution and handover under one roof.',
+    'OMA Designs — considered interiors for homes, offices, restaurants and retail in Vadodara, Gujarat. Design, execution and handover under one roof.',
 }
+
+// Sample photography until the studio's own project photos are in.
+const WORK = [
+  { title: 'Four-bedroom residence', place: 'Alkapuri', src: '/images/residence.jpg', span: 'lg:col-span-2' },
+  { title: 'Specialty café', place: 'Race Course', src: '/images/cafe.jpg', span: '' },
+  { title: 'Design studio office', place: 'Gotri', src: '/images/office.jpg', span: '' },
+  { title: 'Apartment renovation', place: 'Vasna-Bhayli', src: '/images/apartment.jpg', span: '' },
+  { title: 'Flagship retail', place: 'Akota', src: '/images/retail.jpg', span: '' },
+]
 
 const SERVICES = [
   {
     title: 'Residential',
     copy: 'Full homes and single rooms — living, kitchen, bedrooms, wardrobes and modular joinery.',
     items: ['Complete home interiors', 'Modular kitchens', 'Wardrobes & storage', 'Renovation'],
-    tone: 'plaster' as const,
+    src: '/images/kitchen.jpg',
   },
   {
     title: 'Commercial',
     copy: 'Workplaces and hospitality built to trade — offices, cafés, restaurants, retail and hotels.',
     items: ['Office & workspace', 'Restaurants & cafés', 'Retail & showroom', 'Hospitality'],
-    tone: 'stone' as const,
+    src: '/images/commercial.jpg',
   },
 ]
 
@@ -47,7 +56,7 @@ export default function LandingPage() {
         <section className="mx-auto max-w-[84rem] px-5 pb-16 pt-14 sm:px-8 sm:pb-24 sm:pt-20 lg:pt-24">
           <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-16">
             <div>
-              <p className="eyebrow">Interior design &amp; construction</p>
+              <p className="eyebrow">Interior design &amp; construction · Vadodara</p>
 
               <h1 className="mt-5 font-display text-[2.75rem] leading-[1.05] tracking-[-0.025em] sm:text-hero lg:text-display">
                 Spaces made
@@ -56,8 +65,9 @@ export default function LandingPage() {
               </h1>
 
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-ink-soft">
-                We design and build interiors for homes and commercial spaces — from a single
-                kitchen to a complete fit-out. One team from first sketch to final handover.
+                We design and build interiors for homes and commercial spaces across Vadodara
+                and Gujarat — from a single kitchen to a complete fit-out. One team from first
+                sketch to final handover.
               </p>
 
               <div className="mt-9 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -79,10 +89,12 @@ export default function LandingPage() {
               </p>
             </div>
 
-            <ImageSlot
-              tone="plaster"
-              label="Hero — a finished living room in natural daylight"
-              className="aspect-[4/5] w-full lg:aspect-[4/5]"
+            <Photo
+              src="/images/hero.jpg"
+              alt="A sunlit living room with a leather sofa, white lounge chairs and indoor plants"
+              priority
+              sizes="(min-width: 1024px) 50vw, 100vw"
+              className="aspect-[4/5] w-full"
             />
           </div>
         </section>
@@ -113,20 +125,24 @@ export default function LandingPage() {
                 Recent projects
               </h2>
             </div>
+            {env.portfolioUrl ? (
+              <ButtonLink
+                href={env.portfolioUrl}
+                variant="secondary"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                View full portfolio
+              </ButtonLink>
+            ) : null}
           </div>
 
           <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {[
-              { title: 'Four-bedroom residence', place: 'Whitefield', tone: 'plaster' as const, span: 'lg:col-span-2' },
-              { title: 'Specialty café', place: 'Indiranagar', tone: 'clay' as const, span: '' },
-              { title: 'Design studio office', place: 'Koramangala', tone: 'stone' as const, span: '' },
-              { title: 'Apartment renovation', place: 'HSR Layout', tone: 'plaster' as const, span: '' },
-              { title: 'Flagship retail', place: 'MG Road', tone: 'shadow' as const, span: '' },
-            ].map((project) => (
+            {WORK.map((project) => (
               <figure key={project.title} className={project.span}>
-                <ImageSlot
-                  tone={project.tone}
-                  label={`${project.title}, ${project.place}`}
+                <Photo
+                  src={project.src}
+                  alt={`${project.title}, ${project.place}`}
                   className="aspect-[4/3] w-full"
                 />
                 <figcaption className="mt-3 flex items-baseline justify-between gap-4">
@@ -149,9 +165,10 @@ export default function LandingPage() {
             <div className="mt-14 grid gap-12 md:grid-cols-2 md:gap-10">
               {SERVICES.map((service) => (
                 <div key={service.title}>
-                  <ImageSlot
-                    tone={service.tone}
-                    label={`${service.title} interiors`}
+                  <Photo
+                    src={service.src}
+                    alt={`${service.title} interiors`}
+                    sizes="(min-width: 768px) 50vw, 100vw"
                     className="aspect-[16/10] w-full"
                   />
                   <h3 className="mt-6 font-display text-2xl tracking-tight">{service.title}</h3>
@@ -227,6 +244,10 @@ export default function LandingPage() {
         companyName={env.companyName}
         phone={env.companyPhone}
         whatsapp={env.companyWhatsApp}
+        email={env.companyEmail}
+        address={env.companyAddress}
+        portfolioUrl={env.portfolioUrl}
+        instagramUrl={env.instagramUrl}
       />
 
       {/* Sticky mobile CTA — most traffic arrives from an Instagram phone. */}

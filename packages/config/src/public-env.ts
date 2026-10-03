@@ -10,15 +10,23 @@ export type PublicEnv = {
   companyName: string
   companyPhone: string
   companyWhatsApp: string
+  companyEmail: string
+  companyAddress: string
+  portfolioUrl: string
+  instagramUrl: string
   turnstileSiteKey: string | undefined
 }
 
 export function getPublicEnv(): PublicEnv {
   return {
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
-    companyName: process.env.NEXT_PUBLIC_COMPANY_NAME ?? 'Interior Studio',
+    companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || 'OMA Designs',
     companyPhone: process.env.NEXT_PUBLIC_COMPANY_PHONE ?? '',
     companyWhatsApp: process.env.NEXT_PUBLIC_COMPANY_WHATSAPP ?? '',
+    companyEmail: process.env.NEXT_PUBLIC_COMPANY_EMAIL ?? '',
+    companyAddress: process.env.NEXT_PUBLIC_COMPANY_ADDRESS || 'Vadodara, Gujarat',
+    portfolioUrl: process.env.NEXT_PUBLIC_PORTFOLIO_URL ?? '',
+    instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? '',
     turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || undefined,
   }
 }

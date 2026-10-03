@@ -4,10 +4,18 @@ export function SiteFooter({
   companyName,
   phone,
   whatsapp,
+  email = '',
+  address = '',
+  portfolioUrl = '',
+  instagramUrl = '',
 }: {
   companyName: string
   phone: string
   whatsapp: string
+  email?: string
+  address?: string
+  portfolioUrl?: string
+  instagramUrl?: string
 }) {
   const year = new Date().getFullYear()
 
@@ -21,6 +29,7 @@ export function SiteFooter({
               Interior design and construction for homes and commercial spaces. Design, execution
               and handover under one roof.
             </p>
+            {address ? <p className="mt-4 text-sm text-ink-soft">{address}</p> : null}
           </div>
 
           <div>
@@ -45,6 +54,25 @@ export function SiteFooter({
                   </a>
                 </li>
               ) : null}
+              {email ? (
+                <li>
+                  <a href={`mailto:${email}`} className="text-ink-soft hover:text-ink">
+                    {email}
+                  </a>
+                </li>
+              ) : null}
+              {instagramUrl ? (
+                <li>
+                  <a
+                    href={instagramUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-ink-soft hover:text-ink"
+                  >
+                    Instagram
+                  </a>
+                </li>
+              ) : null}
             </ul>
           </div>
 
@@ -56,6 +84,18 @@ export function SiteFooter({
                   Start your project
                 </Link>
               </li>
+              {portfolioUrl ? (
+                <li>
+                  <a
+                    href={portfolioUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-ink-soft hover:text-ink"
+                  >
+                    Portfolio
+                  </a>
+                </li>
+              ) : null}
               <li>
                 <Link href="/login" className="text-ink-soft hover:text-ink">
                   Team sign in

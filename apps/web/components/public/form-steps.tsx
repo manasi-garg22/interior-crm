@@ -149,7 +149,7 @@ export function StepProperty({ values, errors, onChange }: StepProps) {
               {...field}
               value={values.city ?? ''}
               onChange={(event) => onChange({ city: event.target.value })}
-              placeholder="Bengaluru"
+              placeholder="Vadodara"
               autoComplete="address-level2"
               invalid={Boolean(errors.city)}
             />

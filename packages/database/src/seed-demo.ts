@@ -22,7 +22,7 @@ import { BUDGET_RANGES, TIMELINES } from './seed-data'
 
 const FIRST_NAMES = ['Priya', 'Rahul', 'Ananya', 'Vikram', 'Meera', 'Arjun', 'Kavya', 'Rohan']
 const LAST_NAMES = ['Sharma', 'Iyer', 'Nair', 'Reddy', 'Gupta', 'Desai', 'Menon', 'Kulkarni']
-const CITIES = ['Bengaluru', 'Pune', 'Hyderabad', 'Chennai', 'Mumbai']
+const CITIES = ['Vadodara', 'Ahmedabad', 'Surat', 'Anand', 'Bharuch']
 
 const STATUS_SPREAD: LeadStatus[] = [
   LeadStatus.NEW,
@@ -131,7 +131,7 @@ export async function seedDemoLeads(prisma: PrismaClient): Promise<void> {
           whatsappNumber: index % 3 === 0 ? phone : null,
           email: index % 2 === 0 ? `${firstName.toLowerCase()}.${index}@example.com` : null,
           city,
-          state: 'Karnataka',
+          state: 'Gujarat',
           firstSource: source,
           createdAt,
         },
@@ -184,7 +184,7 @@ export async function seedDemoLeads(prisma: PrismaClient): Promise<void> {
             index,
           ),
           city,
-          state: 'Karnataka',
+          state: 'Gujarat',
           areaSqft,
           floors: isCommercial ? 1 : ((index % 3) + 1),
           spaceRequirements: (isCommercial ? COMMERCIAL_SPACES : RESIDENTIAL_SPACES).slice(
