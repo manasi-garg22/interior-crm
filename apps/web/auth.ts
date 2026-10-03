@@ -29,9 +29,9 @@ declare module 'next-auth' {
   }
 }
 
-const env = getEnv()
-
-export const { handlers, auth, signIn, signOut } = NextAuth({
+export const { handlers, auth, signIn, signOut } = NextAuth(() => {
+  const env = getEnv()
+  return {
   secret: env.AUTH_SECRET,
   trustHost: env.AUTH_TRUST_HOST,
 
@@ -116,4 +116,5 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     },
   },
+  }
 })
