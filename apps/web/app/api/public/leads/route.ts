@@ -108,8 +108,15 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (exposed.status >= 500) {
       log.error('lead submission failed', { error })
     }
+    // TEMP: expose raw error in non-production for debugging
+    const isDev = process.env.NODE_ENV !== 'production'
     return NextResponse.json(
-      { error: exposed.message, fieldErrors: exposed.fieldErrors },
+      {
+        error: exposed.message,
+        fieldErrors: exposed.fieldErrors,
+        ...(isDev && { _debug: String(error instanceof Error ? error.stack : error) }),
+        _errorDetail: String(error instanceof Error ? error.message : error),
+      },
       { status: exposed.status },
     )
   }
