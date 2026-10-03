@@ -39,7 +39,7 @@ export async function findFollowUpById(id: string): Promise<FollowUpRow | null> 
 }
 
 export function runInTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
-  return prisma.$transaction(fn, { timeout: 15_000 })
+  return prisma.$transaction(fn, { timeout: 30_000, maxWait: 10_000 })
 }
 
 export async function updateFollowUp(

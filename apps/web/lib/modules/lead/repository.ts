@@ -7,9 +7,10 @@ import { OPEN_LEAD_STATUSES, type AssignmentCandidate } from './assignment'
 
 export function runInTransaction<T>(fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return prisma.$transaction(fn, {
-    // Lead creation does a handful of small writes; the default 5s can be
-    // tight on a cold connection under load.
-    timeout: 15_000,
+    // Neon serverless can have cold-start latency; give the transaction
+    // enough headroom to complete even on first wake.
+    timeout: 30_000,
+    maxWait: 10_000,
   })
 }
 
