@@ -18,6 +18,7 @@ export {
   step5Fields,
   step6Fields,
   isCommercialPropertyType,
+  sanitizePhoneInput,
 } from '@crm/validation'
 
 export type { PropertyTypeValue } from '@crm/validation'

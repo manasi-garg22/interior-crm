@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { ChipGroup, ChipToggle, ChoiceCard, ChoiceGrid } from '@/components/ui/choice'
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field'
 import { Button } from '@/components/ui/button'
+import { sanitizePhoneInput } from '@/lib/public-form-contract'
 
 export type PublicOption = {
   key: string
@@ -379,15 +380,16 @@ export function StepContact({ values, errors, onChange }: StepProps) {
         )}
       </Field>
 
-      <Field label="Phone number" error={errors.phone} required>
+      <Field label="Phone number" hint="10-digit mobile number" error={errors.phone} required>
         {(field) => (
           <TextInput
             {...field}
             type="tel"
             inputMode="tel"
+            maxLength={20}
             value={values.phone ?? ''}
             onChange={(event) => {
-              const phone = event.target.value
+              const phone = sanitizePhoneInput(event.target.value)
               onChange(sameAsPhone ? { phone, whatsappNumber: phone } : { phone })
             }}
             placeholder="98765 43210"
@@ -417,8 +419,11 @@ export function StepContact({ values, errors, onChange }: StepProps) {
               {...field}
               type="tel"
               inputMode="tel"
+              maxLength={20}
               value={values.whatsappNumber ?? ''}
-              onChange={(event) => onChange({ whatsappNumber: event.target.value })}
+              onChange={(event) =>
+                onChange({ whatsappNumber: sanitizePhoneInput(event.target.value) })
+              }
               placeholder="98765 43210"
               invalid={Boolean(errors.whatsappNumber)}
             />
