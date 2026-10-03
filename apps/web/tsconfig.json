@@ -77,6 +77,9 @@
   ],
   "exclude": [
     "node_modules",
-    "../../node_modules"
+    "../../node_modules",
+    "../../packages/database/src/seed.ts",
+    "../../packages/database/src/seed-demo.ts",
+    "../../packages/database/src/seed-data.ts"
   ]
 }
