@@ -12,6 +12,7 @@
     "packages/integrations/*"
   ],
   "scripts": {
+    "postinstall": "prisma generate --schema packages/database/prisma/schema.prisma",
     "dev": "npm run dev --workspace web",
     "build": "npm run build --workspace web",
     "start": "npm run start --workspace web",
