@@ -9,6 +9,8 @@ import { buildStorageKey, getFileStorage } from '@crm/storage'
 import { clientIpFrom, getRateLimiter, hashIp } from '@/lib/server/rate-limit'
 import { logger } from '@/lib/server/logger'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Attachment upload for the public enquiry form.
  *

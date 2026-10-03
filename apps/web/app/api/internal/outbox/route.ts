@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { getEnv } from '@crm/config'
 import { dispatchPending } from '@/lib/events/dispatcher'
 
+export const dynamic = 'force-dynamic'
+
 /**
  * Scheduled outbox drain.
  *

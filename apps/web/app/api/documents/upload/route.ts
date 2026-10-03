@@ -5,6 +5,8 @@ import { toUserFacingError } from '@/lib/server/errors'
 import { logger } from '@/lib/server/logger'
 import type { DocumentCategory } from '@crm/database'
 
+export const dynamic = 'force-dynamic'
+
 const log = logger.child('api.documents.upload')
 
 const CATEGORIES = [
