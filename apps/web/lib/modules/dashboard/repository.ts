@@ -88,7 +88,7 @@ export async function loadDashboard(
       where: { AND: [followUpScope, { status: 'PENDING', scheduledAt: { lt: startOfToday } }] },
     }),
 
-    prisma.lead.groupBy({ by: ['source'], where: base, _count: { _all: true } }),
+    prisma.lead.groupBy({ by: ['source'], where: base, _count: { _all: true }, orderBy: { _count: { source: 'desc' } } }),
     prisma.customer.groupBy({
       by: ['city'],
       where: { deletedAt: null, leads: { some: base } },
@@ -100,11 +100,13 @@ export async function loadDashboard(
       by: ['propertyType'],
       where: { lead: base },
       _count: { _all: true },
+      orderBy: { _count: { propertyType: 'desc' } },
     }),
     prisma.leadRequirement.groupBy({
       by: ['budgetKey'],
       where: { lead: base },
       _count: { _all: true },
+      orderBy: { _count: { budgetKey: 'desc' } },
     }),
 
     recentLeadsQuery(scope),
