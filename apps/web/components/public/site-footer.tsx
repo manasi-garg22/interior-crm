@@ -35,6 +35,14 @@ export function SiteFooter({
           <div>
             <p className="eyebrow">Talk to us</p>
             <ul className="mt-4 space-y-2.5 text-sm">
+              {/* Never leave this column empty: "Talk to our team" scrolls here. */}
+              {!phone && !whatsapp && !email ? (
+                <li>
+                  <Link href="/start-project" className="text-ink-soft hover:text-ink">
+                    Share your details and we will call you back
+                  </Link>
+                </li>
+              ) : null}
               {phone ? (
                 <li>
                   <a href={`tel:${phone}`} className="text-ink-soft hover:text-ink">

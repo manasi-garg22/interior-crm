@@ -25,8 +25,8 @@ export const OPEN_LEAD_STATUSES = [
   'QUALIFIED',
   'CONSULTATION',
   'SITE_VISIT',
-  'DESIGN',
   'QUOTATION',
+  'DESIGN',
   'NEGOTIATION',
 ] as const
 

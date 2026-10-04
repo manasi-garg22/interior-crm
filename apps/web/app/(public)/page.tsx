@@ -38,8 +38,8 @@ const SERVICES = [
 const PROCESS = [
   { step: '01', title: 'Consultation', copy: 'We listen to how you live or trade, and what the space has to do.' },
   { step: '02', title: 'Site visit', copy: 'Measurements, services, structure and the constraints that shape the design.' },
-  { step: '03', title: 'Design', copy: 'Layouts, materials and 3D visuals until the space is right on paper.' },
-  { step: '04', title: 'Quotation', copy: 'A line-by-line cost against the drawings. No allowances that move later.' },
+  { step: '03', title: 'Quotation', copy: 'A clear, line-by-line cost for the scope we agreed on site. No allowances that move later.' },
+  { step: '04', title: 'Design', copy: 'Layouts, materials and 3D visuals until the space is right on paper.' },
   { step: '05', title: 'Execution', copy: 'One project manager, scheduled trades, weekly progress you can see.' },
   { step: '06', title: 'Handover', copy: 'Snagging closed, warranties issued, and a space ready to use.' },
 ]
