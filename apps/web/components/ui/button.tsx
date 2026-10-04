@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { cn } from '@/lib/utils/cn'
 
-type Variant = 'primary' | 'secondary' | 'ghost' | 'danger'
+type Variant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'inverse'
 type Size = 'sm' | 'md' | 'lg'
 
 const BASE =
@@ -12,6 +12,8 @@ const VARIANTS: Record<Variant, string> = {
   secondary: 'border border-line-strong bg-surface text-ink hover:bg-surface-sunken',
   ghost: 'text-ink-soft hover:bg-surface-sunken hover:text-ink',
   danger: 'bg-danger text-white hover:opacity-90',
+  /** For dark sections: light button, dark text. */
+  inverse: 'bg-ink-inverse text-ink hover:bg-white',
 }
 
 const SIZES: Record<Size, string> = {

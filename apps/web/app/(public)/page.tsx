@@ -219,11 +219,7 @@ export default function LandingPage() {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
-                <ButtonLink
-                  href="/start-project"
-                  size="lg"
-                  className="bg-ink-inverse text-ink hover:bg-white"
-                >
+                <ButtonLink href="/start-project" size="lg" variant="inverse">
                   Start Your Project
                 </ButtonLink>
                 {env.companyPhone ? (
