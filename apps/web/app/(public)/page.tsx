@@ -101,12 +101,11 @@ export default function LandingPage() {
 
         {/* ── Credibility strip ──────────────────────────── */}
         <section className="border-y border-line bg-surface">
-          <div className="mx-auto grid max-w-[84rem] grid-cols-2 gap-px bg-line px-0 sm:grid-cols-4">
+          <div className="mx-auto grid max-w-[84rem] grid-cols-1 gap-px bg-line px-0 sm:grid-cols-3">
             {[
-              { value: '250+', label: 'Projects delivered' },
-              { value: '12', label: 'Years in practice' },
-              { value: '45 days', label: 'Typical home fit-out' },
-              { value: '100%', label: 'On-site supervision' },
+              { value: '500+', label: 'Happy clients' },
+              { value: '5 years', label: 'Designing and building spaces' },
+              { value: 'Vadodara+', label: 'Now expanding to more cities — contact us for details' },
             ].map((stat) => (
               <div key={stat.label} className="bg-surface px-5 py-8 sm:px-8 sm:py-10">
                 <p className="font-display text-3xl tracking-tight sm:text-4xl">{stat.value}</p>
