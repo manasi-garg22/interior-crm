@@ -42,6 +42,10 @@ const nextConfig: NextConfig = {
             key: 'Permissions-Policy',
             value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()',
           },
+          // Belt and braces with the robots meta tag: keep the test site out of search.
+          ...(process.env.NEXT_PUBLIC_APP_ENV === 'dev'
+            ? [{ key: 'X-Robots-Tag', value: 'noindex, nofollow' }]
+            : []),
         ],
       },
     ]
