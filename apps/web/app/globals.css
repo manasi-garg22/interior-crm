@@ -93,6 +93,11 @@
     outline-offset: 2px;
   }
 
+  /* Smooth in-page jumps ("Work", "Talk to our team"). */
+  html {
+    scroll-behavior: smooth;
+  }
+
   /* Respect users who have asked for less motion. */
   @media (prefers-reduced-motion: reduce) {
     *,
@@ -125,5 +130,83 @@
   /* Hairline rule used between editorial sections */
   .rule {
     border-top: 1px solid var(--color-line);
+  }
+}
+
+/* ── Motion ──────────────────────────────────────────────────
+ * Restrained by design: fades, short travel, one soft easing curve.
+ * Content is only hidden once <html class="js"> is set, so a script
+ * failure can never leave a blank page.
+ */
+
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes settle-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Hero: staggered entrance on first paint. Set --delay inline. */
+.hero-in {
+  animation: rise-in 0.9s var(--ease-out-soft) both;
+  animation-delay: var(--delay, 0ms);
+}
+
+/* Hero photo: slow settle, like a camera finding focus. */
+.hero-photo {
+  animation: settle-in 1.8s var(--ease-out-soft) both;
+}
+
+/* Scroll reveal — RevealObserver adds .is-visible. Set --delay to stagger. */
+.js .reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition:
+    opacity 0.9s var(--ease-out-soft),
+    transform 0.9s var(--ease-out-soft);
+  transition-delay: var(--delay, 0ms);
+}
+
+.js .reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* Accent underline that draws in on hover. */
+.link-draw {
+  background-image: linear-gradient(currentColor, currentColor);
+  background-size: 0% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+  transition: background-size 0.4s var(--ease-out-soft);
+}
+
+.link-draw:hover {
+  background-size: 100% 1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .reveal {
+    opacity: 1;
+    transform: none;
+  }
+  .hero-in,
+  .hero-photo {
+    animation: none;
   }
 }

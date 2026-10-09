@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { BrandLogo } from '@/components/ui/brand-logo'
+import { InstagramIcon, YouTubeIcon } from './social-icons'
 
 export function SiteFooter({
   companyName,
@@ -9,6 +10,7 @@ export function SiteFooter({
   address = '',
   portfolioUrl = '',
   instagramUrl = '',
+  youtubeUrl = '',
 }: {
   companyName: string
   phone: string
@@ -17,6 +19,7 @@ export function SiteFooter({
   address?: string
   portfolioUrl?: string
   instagramUrl?: string
+  youtubeUrl?: string
 }) {
   const year = new Date().getFullYear()
 
@@ -76,9 +79,23 @@ export function SiteFooter({
                     href={instagramUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-ink-soft hover:text-ink"
+                    className="inline-flex items-center gap-2 text-ink-soft transition-colors hover:text-ink"
                   >
+                    <InstagramIcon className="size-4" />
                     Instagram
+                  </a>
+                </li>
+              ) : null}
+              {youtubeUrl ? (
+                <li>
+                  <a
+                    href={youtubeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 text-ink-soft transition-colors hover:text-ink"
+                  >
+                    <YouTubeIcon className="size-4" />
+                    YouTube
                   </a>
                 </li>
               ) : null}

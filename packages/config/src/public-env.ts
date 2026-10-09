@@ -17,6 +17,7 @@ export type PublicEnv = {
   companyAddress: string
   portfolioUrl: string
   instagramUrl: string
+  youtubeUrl: string
   /** File uploads need object storage (R2/B2). Off until it is configured. */
   uploadsEnabled: boolean
   turnstileSiteKey: string | undefined
@@ -32,7 +33,12 @@ export function getPublicEnv(): PublicEnv {
     companyEmail: process.env.NEXT_PUBLIC_COMPANY_EMAIL ?? '',
     companyAddress: process.env.NEXT_PUBLIC_COMPANY_ADDRESS || 'Vadodara, Gujarat',
     portfolioUrl: process.env.NEXT_PUBLIC_PORTFOLIO_URL ?? '',
-    instagramUrl: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? '',
+    // The studio's public profiles; override per environment if they ever change.
+    instagramUrl:
+      process.env.NEXT_PUBLIC_INSTAGRAM_URL || 'https://www.instagram.com/omarchdesigns/',
+    youtubeUrl:
+      process.env.NEXT_PUBLIC_YOUTUBE_URL ||
+      'https://www.youtube.com/channel/UCxQULs-MFCotw_FU3_vufAw',
     uploadsEnabled: process.env.NEXT_PUBLIC_UPLOADS_ENABLED === 'true',
     turnstileSiteKey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || undefined,
   }

@@ -25,8 +25,17 @@ export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    // The class below is set by the inline script before first paint.
+    <html lang="en" suppressHydrationWarning>
       <body className="min-h-dvh antialiased">
+        {/* Enables scroll-reveal styles only when JS runs; reveals everything
+            after 2.5s if the observer never starts, so nothing stays hidden. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "document.documentElement.classList.add('js');window.__revealFallback=setTimeout(function(){document.querySelectorAll('.reveal').forEach(function(e){e.classList.add('is-visible')})},2500)",
+          }}
+        />
         {isTestSite ? (
           <div
             role="note"
