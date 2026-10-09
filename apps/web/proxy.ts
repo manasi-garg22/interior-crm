@@ -24,6 +24,7 @@ const CRM_PREFIXES = [
   '/leads',
   '/pipeline',
   '/customers',
+  '/estimates',
   '/follow-ups',
   '/projects',
   '/analytics',

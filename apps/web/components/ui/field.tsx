@@ -62,7 +62,8 @@ export function TextInput({
   invalid,
   className,
   ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { invalid?: boolean }) {
+}: React.ComponentProps<'input'> & { invalid?: boolean }) {
+  // ComponentProps includes `ref`, which React 19 passes through as a prop.
   return (
     <input
       className={cn(CONTROL, 'h-12', invalid ? 'border-danger' : 'border-line-strong', className)}

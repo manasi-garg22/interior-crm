@@ -16,6 +16,8 @@ export const NAV_ITEMS: NavItem[] = [
   { href: '/leads', label: 'Leads', permission: 'lead:read:assigned' },
   { href: '/pipeline', label: 'Pipeline', permission: 'lead:read:assigned' },
   { href: '/customers', label: 'Customers', permission: 'customer:read' },
+  // Sales roles and admins prepare quotations; designers and viewers do not.
+  { href: '/estimates', label: 'Cost estimates', permission: 'lead:create' },
   { href: '/follow-ups', label: 'Follow-ups', permission: 'followup:read:own' },
   { href: '/projects', label: 'Projects', permission: 'project:read' },
   { href: '/analytics', label: 'Analytics', permission: 'analytics:read' },

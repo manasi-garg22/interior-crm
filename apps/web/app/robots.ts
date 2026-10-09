@@ -20,6 +20,7 @@ export default function robots(): MetadataRoute.Robots {
         '/pipeline',
         '/follow-ups',
         '/customers',
+        '/estimates',
         '/projects',
         '/campaigns',
         '/analytics',
