@@ -5,37 +5,52 @@ import { useEffect } from 'react'
 /**
  * Scroll-reveal for the marketing pages.
  *
- * Mount once per page. Any element with the `reveal` class fades up the first
- * time it enters the viewport. Elements are hidden only once JavaScript has
- * marked <html class="js"> (see app/layout.tsx), so content is never lost
- * if scripts fail — and the layout script reveals everything after 2.5s if
- * this observer never starts.
+ * Mount once per page. Any element with the `reveal` class fades up once its
+ * top edge comes into view — including elements the visitor jumped straight
+ * past (End key, fast flick, anchor link), so nothing is ever left invisible.
+ *
+ * Elements are hidden only once JavaScript has marked <html class="js">
+ * (see app/layout.tsx), and the layout reveals everything after 2.5s if this
+ * component never mounts.
  */
 export function RevealObserver() {
   useEffect(() => {
     const win = window as Window & { __revealFallback?: number }
     if (win.__revealFallback) window.clearTimeout(win.__revealFallback)
 
-    const elements = document.querySelectorAll<HTMLElement>('.reveal:not(.is-visible)')
-    if (!('IntersectionObserver' in window)) {
-      elements.forEach((el) => el.classList.add('is-visible'))
-      return
+    let pending = Array.from(document.querySelectorAll<HTMLElement>('.reveal:not(.is-visible)'))
+    let frame = 0
+
+    const check = () => {
+      frame = 0
+      const trigger = window.innerHeight * 0.92
+      pending = pending.filter((el) => {
+        if (el.getBoundingClientRect().top < trigger) {
+          el.classList.add('is-visible')
+          return false
+        }
+        return true
+      })
+      if (pending.length === 0) stop()
     }
 
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            entry.target.classList.add('is-visible')
-            observer.unobserve(entry.target)
-          }
-        }
-      },
-      { rootMargin: '0px 0px -8% 0px', threshold: 0.12 },
-    )
+    const schedule = () => {
+      if (!frame) frame = requestAnimationFrame(check)
+    }
 
-    elements.forEach((el) => observer.observe(el))
-    return () => observer.disconnect()
+    const stop = () => {
+      window.removeEventListener('scroll', schedule)
+      window.removeEventListener('resize', schedule)
+    }
+
+    window.addEventListener('scroll', schedule, { passive: true })
+    window.addEventListener('resize', schedule, { passive: true })
+    check()
+
+    return () => {
+      stop()
+      if (frame) cancelAnimationFrame(frame)
+    }
   }, [])
 
   return null
