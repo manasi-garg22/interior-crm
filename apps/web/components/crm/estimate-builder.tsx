@@ -477,23 +477,15 @@ export function EstimateBuilder() {
                             >
                               ↓
                             </IconButton>
-                            <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
+                            <IconButton label={`Edit ${item.name}`} onClick={() => startEdit(item)}>
                               <Icon name="edit" />
-                              Edit
-                            </Button>
-                            <Button variant="ghost" size="sm" onClick={() => duplicate(item)}>
+                            </IconButton>
+                            <IconButton label={`Duplicate ${item.name}`} onClick={() => duplicate(item)}>
                               <Icon name="copy" />
-                              Duplicate
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => remove(item)}
-                              className="text-danger hover:bg-danger-soft hover:text-danger"
-                            >
+                            </IconButton>
+                            <IconButton label={`Remove ${item.name}`} onClick={() => remove(item)} danger>
                               <Icon name="trash" />
-                              Remove
-                            </Button>
+                            </IconButton>
                           </div>
                         </li>
                       ),
@@ -694,11 +686,14 @@ function IconButton({
   label,
   onClick,
   disabled,
+  danger = false,
   children,
 }: {
+  /** Read by screen readers and shown as a tooltip on hover. */
   label: string
   onClick: () => void
   disabled?: boolean
+  danger?: boolean
   children: React.ReactNode
 }) {
   return (
@@ -708,7 +703,12 @@ function IconButton({
       title={label}
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex size-9 items-center justify-center rounded-[2px] text-ink-muted transition-colors hover:bg-surface-sunken hover:text-ink disabled:opacity-30"
+      className={cn(
+        'inline-flex size-9 items-center justify-center rounded-[2px] transition-colors disabled:opacity-30',
+        danger
+          ? 'text-danger hover:bg-danger-soft'
+          : 'text-ink-muted hover:bg-surface-sunken hover:text-ink',
+      )}
     >
       {children}
     </button>
