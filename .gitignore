@@ -47,3 +47,6 @@ Thumbs.db
 # prisma
 packages/database/prisma/*.db
 packages/database/prisma/*.db-journal
+
+# vercel cli
+.vercel
