@@ -4,10 +4,12 @@ import { getPublicEnv } from '@crm/config'
 import { getPublicFormOptions } from '@/lib/modules/options/service'
 import { ProjectForm } from '@/components/public/project-form'
 import { BrandLogo } from '@/components/ui/brand-logo'
+import { ValuesStrip } from '@/components/public/values'
 
 export const metadata: Metadata = {
   title: 'Start your project',
-  description: 'Tell us about your space and a designer will get in touch.',
+  description:
+    'Your space, our expertise. Tell us about your project in two minutes and an OM Arch Designs designer will get in touch.',
   robots: { index: false, follow: true },
 }
 
@@ -29,7 +31,28 @@ export default async function StartProjectPage() {
         </div>
       </header>
 
-      <main className="flex-1 px-5 py-10 sm:px-8 sm:py-16">
+      <main className="flex-1 px-5 py-10 sm:px-8 sm:py-14">
+        {/* Promise above the form: who we are and why it is safe to share details. */}
+        <section className="mx-auto mb-10 w-full max-w-2xl sm:mb-12">
+          <p className="eyebrow hero-in">Start your project</p>
+          <h1
+            className="hero-in mt-4 font-display text-[2.25rem] leading-[1.08] tracking-[-0.02em] sm:text-[2.75rem]"
+            style={{ '--delay': '100ms' } as React.CSSProperties}
+          >
+            Your space. <span className="text-accent">Our expertise.</span>
+          </h1>
+          <p
+            className="hero-in mt-4 text-lg leading-relaxed text-ink-soft"
+            style={{ '--delay': '200ms' } as React.CSSProperties}
+          >
+            We value your time, your money and your dream. Let&apos;s work together — tell us
+            about your space in two minutes.
+          </p>
+          <div className="mt-6">
+            <ValuesStrip />
+          </div>
+        </section>
+
         <ProjectForm options={options} uploadsEnabled={env.uploadsEnabled} />
       </main>
 

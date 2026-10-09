@@ -8,6 +8,7 @@ import { RevealObserver } from '@/components/public/reveal-observer'
 import { CountUp } from '@/components/public/count-up'
 import { InstagramIcon, YouTubeIcon } from '@/components/public/social-icons'
 import { JsonLd, businessJsonLd } from '@/components/public/json-ld'
+import { ValuesSection } from '@/components/public/values'
 import { SERVICES as SERVICE_PAGES } from '@/lib/seo/services'
 import Link from 'next/link'
 
@@ -75,10 +76,10 @@ export default function LandingPage() {
 
               <h1 className="mt-5 font-display text-[2.75rem] leading-[1.05] tracking-[-0.025em] sm:text-hero lg:text-display">
                 <span className="hero-in block" style={delay(120)}>
-                  Spaces made
+                  Your space.
                 </span>
                 <span className="hero-in block" style={delay(260)}>
-                  to be <em className="not-italic text-accent">lived in.</em>
+                  <em className="not-italic text-accent">Our expertise.</em>
                 </span>
               </h1>
 
@@ -140,6 +141,9 @@ export default function LandingPage() {
             </div>
           </div>
         </section>
+
+        {/* ── Our promise ────────────────────────────────── */}
+        <ValuesSection />
 
         {/* ── Work ───────────────────────────────────────── */}
         <section id="work" className="mx-auto max-w-[84rem] px-5 py-20 sm:px-8 sm:py-28">
@@ -289,7 +293,7 @@ export default function LandingPage() {
             <div className="reveal grid items-center gap-10 lg:grid-cols-[1.2fr_auto]">
               <div>
                 <h2 className="max-w-2xl font-display text-[2rem] leading-[1.1] tracking-tight sm:text-[2.75rem]">
-                  Tell us about your space.
+                  Let&apos;s work together.
                 </h2>
                 <p className="mt-5 max-w-lg text-lg leading-relaxed text-ink-inverse/70">
                   Five short steps. You will hear back from a designer, not a call centre.

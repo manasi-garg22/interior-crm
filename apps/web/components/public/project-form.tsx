@@ -126,8 +126,14 @@ export function ProjectForm({
     }
   }, [values, step])
 
-  // Move focus to the new step heading so the change is announced.
+  // Move focus to the new step heading so the change is announced — but not
+  // on first load, where it would scroll past the page intro above the form.
+  // Compares with the previous step rather than a "first render" flag, which
+  // React's dev-mode double effects would defeat.
+  const shownStep = useRef(step)
   useEffect(() => {
+    if (shownStep.current === step) return
+    shownStep.current = step
     headingRef.current?.focus()
   }, [step])
 
