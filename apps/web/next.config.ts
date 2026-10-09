@@ -29,6 +29,28 @@ const nextConfig: NextConfig = {
     authInterrupts: true,
   },
 
+  /**
+   * The previous omarchdesigns.com site had these pages, and Google still
+   * lists them. Permanent redirects send those visitors (and the search
+   * ranking) to the matching section instead of a 404.
+   */
+  async redirects() {
+    const old = [
+      { source: '/about', destination: '/#services' },
+      { source: '/services', destination: '/#services' },
+      { source: '/gallery', destination: '/#work' },
+      { source: '/team', destination: '/#process' },
+      { source: '/contact', destination: '/start-project' },
+      { source: '/index', destination: '/' },
+    ]
+    // Old URLs sometimes carried .php / .html, or a trailing path.
+    return old.flatMap(({ source, destination }) => [
+      { source, destination, permanent: true },
+      { source: `${source}.:ext(php|html|htm)`, destination, permanent: true },
+      { source: `${source}/:rest*`, destination, permanent: true },
+    ])
+  },
+
   async headers() {
     return [
       {
