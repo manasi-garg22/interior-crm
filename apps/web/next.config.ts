@@ -43,11 +43,14 @@ const nextConfig: NextConfig = {
       { source: '/contact', destination: '/start-project' },
       { source: '/index', destination: '/' },
     ]
-    // Old URLs sometimes carried .php / .html, or a trailing path.
+    // Old URLs sometimes carried .php / .html, or a trailing path. /services
+    // gets no catch-all: /services/<slug> are the new service landing pages.
     return old.flatMap(({ source, destination }) => [
       { source, destination, permanent: true },
       { source: `${source}.:ext(php|html|htm)`, destination, permanent: true },
-      { source: `${source}/:rest*`, destination, permanent: true },
+      ...(source === '/services'
+        ? []
+        : [{ source: `${source}/:rest*`, destination, permanent: true }]),
     ])
   },
 

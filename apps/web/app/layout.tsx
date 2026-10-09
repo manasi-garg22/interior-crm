@@ -4,13 +4,38 @@ import './globals.css'
 /** Set to "dev" on the test site only. Production leaves it unset. */
 const isTestSite = process.env.NEXT_PUBLIC_APP_ENV === 'dev'
 
+const siteUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://www.omarchdesigns.com').replace(/\/$/, '')
+const description =
+  'OM Arch Designs — interior designers in Vadodara, Gujarat. Home interiors, modular kitchens, offices, cafés and retail, designed and built by one team. Free consultation.'
+
 export const metadata: Metadata = {
+  // Lets every page use relative URLs for canonical and social images.
+  metadataBase: new URL(siteUrl),
   title: {
-    default: 'OMA Designs — Interior Design & Construction in Vadodara',
-    template: isTestSite ? '[TEST] %s · OMA Designs' : '%s · OMA Designs',
+    default: 'Interior Designer in Vadodara | OM Arch Designs',
+    template: isTestSite ? '[TEST] %s · OM Arch Designs' : '%s · OM Arch Designs',
   },
-  description:
-    'OM Arch Designs (OMA Designs) — residential and commercial interior design and construction in Vadodara, Gujarat. Considered spaces, delivered end to end.',
+  description,
+  applicationName: 'OM Arch Designs',
+  alternates: { canonical: '/' },
+  // Link previews on WhatsApp, Instagram, Facebook and LinkedIn.
+  openGraph: {
+    type: 'website',
+    locale: 'en_IN',
+    siteName: 'OM Arch Designs',
+    title: 'Interior Designer in Vadodara | OM Arch Designs',
+    description,
+    url: '/',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Interior Designer in Vadodara | OM Arch Designs',
+    description,
+  },
+  // Filled in once Google Search Console issues a token (no DNS needed).
+  ...(process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION
+    ? { verification: { google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION } }
+    : {}),
   // The test site must never show up in Google next to the real one.
   robots: isTestSite ? { index: false, follow: false } : { index: true, follow: true },
 }

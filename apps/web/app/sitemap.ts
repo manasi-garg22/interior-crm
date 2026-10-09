@@ -1,5 +1,6 @@
 import type { MetadataRoute } from 'next'
 import { getPublicEnv } from '@crm/config'
+import { SERVICES } from '@/lib/seo/services'
 
 /**
  * Public pages only. The CRM, login and thank-you pages are deliberately
@@ -12,6 +13,11 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: `${base}/`, changeFrequency: 'weekly', priority: 1 },
+    ...SERVICES.map((service) => ({
+      url: `${base}/services/${service.slug}`,
+      changeFrequency: 'monthly' as const,
+      priority: 0.9,
+    })),
     { url: `${base}/start-project`, changeFrequency: 'monthly', priority: 0.8 },
   ]
 }

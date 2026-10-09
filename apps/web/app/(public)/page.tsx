@@ -7,11 +7,16 @@ import { SiteFooter } from '@/components/public/site-footer'
 import { RevealObserver } from '@/components/public/reveal-observer'
 import { CountUp } from '@/components/public/count-up'
 import { InstagramIcon, YouTubeIcon } from '@/components/public/social-icons'
+import { JsonLd, businessJsonLd } from '@/components/public/json-ld'
+import { SERVICES as SERVICE_PAGES } from '@/lib/seo/services'
+import Link from 'next/link'
 
 export const metadata: Metadata = {
-  title: 'Interior Design & Construction in Vadodara',
+  // Absolute: the homepage title leads with the search phrase, no suffix.
+  title: { absolute: 'Interior Designer in Vadodara | OM Arch Designs' },
   description:
-    'OM Arch Designs (OMA Designs) — considered interiors for homes, offices, restaurants and retail in Vadodara, Gujarat. Design, execution and handover under one roof.',
+    'OM Arch Designs — interior designers in Vadodara for homes, modular kitchens, offices, cafés and retail. 500+ clients, design to handover by one team. Free consultation.',
+  alternates: { canonical: '/' },
 }
 
 // Sample photography until the studio's own project photos are in.
@@ -55,6 +60,7 @@ export default function LandingPage() {
 
   return (
     <div className="flex min-h-dvh flex-col">
+      <JsonLd data={businessJsonLd()} />
       <RevealObserver />
       <SiteHeader companyName={env.companyName} />
 
@@ -204,6 +210,23 @@ export default function LandingPage() {
                   </ul>
                 </div>
               ))}
+            </div>
+
+            {/* Links to the service landing pages — also how Google finds them. */}
+            <div className="reveal mt-14 border-t border-line pt-8">
+              <p className="eyebrow">Explore our services</p>
+              <ul className="mt-5 flex flex-wrap gap-3">
+                {SERVICE_PAGES.map((page) => (
+                  <li key={page.slug}>
+                    <Link
+                      href={`/services/${page.slug}`}
+                      className="inline-flex items-center gap-2 rounded-[2px] border border-line-strong px-4 py-2.5 text-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-ink hover:bg-ink hover:text-ink-inverse"
+                    >
+                      {page.name} <span aria-hidden>→</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
         </section>

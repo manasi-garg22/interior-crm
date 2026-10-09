@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { BrandLogo } from '@/components/ui/brand-logo'
 import { ButtonLink } from '@/components/ui/button'
 
@@ -8,24 +9,25 @@ export function SiteHeader({ companyName }: { companyName: string }) {
         <BrandLogo companyName={companyName} href="/" />
 
         <nav className="hidden items-center gap-9 text-sm text-ink-soft md:flex">
-          <a href="#work" className="transition-colors hover:text-ink">
+          {/* Root-relative, so these also work from the service pages. */}
+          <Link href="/#work" className="transition-colors hover:text-ink">
             Work
-          </a>
-          <a href="#services" className="transition-colors hover:text-ink">
+          </Link>
+          <Link href="/#services" className="transition-colors hover:text-ink">
             Services
-          </a>
-          <a href="#process" className="transition-colors hover:text-ink">
+          </Link>
+          <Link href="/#process" className="transition-colors hover:text-ink">
             Process
-          </a>
+          </Link>
         </nav>
 
         <div className="flex items-center gap-3">
-          <a
-            href="#contact"
+          <Link
+            href="/#contact"
             className="hidden text-sm text-ink-soft transition-colors hover:text-ink sm:inline"
           >
             Talk to our team
-          </a>
+          </Link>
           <ButtonLink href="/start-project" size="sm">
             Start Your Project
           </ButtonLink>
