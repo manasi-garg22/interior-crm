@@ -29,7 +29,8 @@ type CommonProps = {
   children: React.ReactNode
 }
 
-type ButtonProps = CommonProps & React.ButtonHTMLAttributes<HTMLButtonElement>
+// ComponentProps includes `ref`, which React 19 passes through as a prop.
+type ButtonProps = CommonProps & React.ComponentProps<'button'>
 
 export function Button({
   variant = 'primary',

@@ -76,7 +76,8 @@ export function EstimateBuilder() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<ItemDraft>(BLANK_DRAFT)
   const [editError, setEditError] = useState<string | null>(null)
-  const [exporting, setExporting] = useState(false)
+  const [exporting, setExporting] = useState<'download' | 'preview' | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const itemNameRef = useRef<HTMLInputElement>(null)
   const roomListId = useId()
@@ -208,24 +209,59 @@ export function EstimateBuilder() {
     setDraft(BLANK_DRAFT)
   }
 
-  async function exportPdf() {
+  function readyForPdf(): boolean {
     if (!estimate.items.length) {
-      flash('Add at least one item before downloading.')
-      return
+      flash('Add at least one item first.')
+      return false
     }
     if (editingId) {
       flash('Save or cancel the item you are editing first.')
-      return
+      return false
     }
-    setExporting(true)
+    return true
+  }
+
+  async function exportPdf() {
+    if (!readyForPdf()) return
+    setExporting('download')
     try {
       const { downloadEstimatePdf } = await import('@/lib/estimate/pdf')
       await downloadEstimatePdf(estimate)
     } catch {
       flash('Could not create the PDF. Please try again.')
     } finally {
-      setExporting(false)
+      setExporting(null)
     }
+  }
+
+  async function previewPdf() {
+    if (!readyForPdf()) return
+    // Phones and tablets cannot show a PDF inside the page, so they get a new
+    // tab. It is opened now, inside the click, or popup blockers stop it.
+    const inline = window.matchMedia('(min-width: 768px) and (pointer: fine)').matches
+    const tab = inline ? null : window.open('', '_blank')
+    setExporting('preview')
+    try {
+      const { previewEstimatePdf } = await import('@/lib/estimate/pdf')
+      const url = await previewEstimatePdf(estimate)
+      if (tab) {
+        tab.location.href = url
+        // The tab has its own copy once loaded; free ours after a while.
+        window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+      } else {
+        setPreviewUrl(url)
+      }
+    } catch {
+      tab?.close()
+      flash('Could not create the preview. Please try again.')
+    } finally {
+      setExporting(null)
+    }
+  }
+
+  function closePreview() {
+    if (previewUrl) URL.revokeObjectURL(previewUrl)
+    setPreviewUrl(null)
   }
 
   const groups = groupByRoom(estimate.items)
@@ -355,6 +391,7 @@ export function EstimateBuilder() {
                 )}
               </Field>
               <Button type="submit" size="lg" className="col-span-2 h-12 sm:col-span-1">
+                <Icon name="plus" />
                 Add item
               </Button>
             </div>
@@ -441,9 +478,11 @@ export function EstimateBuilder() {
                               ↓
                             </IconButton>
                             <Button variant="ghost" size="sm" onClick={() => startEdit(item)}>
+                              <Icon name="edit" />
                               Edit
                             </Button>
                             <Button variant="ghost" size="sm" onClick={() => duplicate(item)}>
+                              <Icon name="copy" />
                               Duplicate
                             </Button>
                             <Button
@@ -452,6 +491,7 @@ export function EstimateBuilder() {
                               onClick={() => remove(item)}
                               className="text-danger hover:bg-danger-soft hover:text-danger"
                             >
+                              <Icon name="trash" />
                               Remove
                             </Button>
                           </div>
@@ -483,15 +523,27 @@ export function EstimateBuilder() {
             </ul>
           ) : null}
 
-          <Button
-            variant="inverse"
-            size="lg"
-            className="mt-6 w-full"
-            onClick={() => void exportPdf()}
-            disabled={exporting}
-          >
-            {exporting ? 'Preparing PDF…' : 'Download PDF'}
-          </Button>
+          <div className="mt-6 grid gap-2.5">
+            <Button
+              variant="inverse"
+              size="lg"
+              className="w-full"
+              onClick={() => void exportPdf()}
+              disabled={exporting !== null}
+            >
+              <Icon name="download" />
+              {exporting === 'download' ? 'Preparing PDF…' : 'Download PDF'}
+            </Button>
+            <Button
+              size="lg"
+              className="w-full border border-ink-inverse/30 bg-transparent text-ink-inverse hover:bg-ink-inverse/10"
+              onClick={() => void previewPdf()}
+              disabled={exporting !== null}
+            >
+              <Icon name="eye" />
+              {exporting === 'preview' ? 'Preparing preview…' : 'Preview PDF'}
+            </Button>
+          </div>
           <button
             type="button"
             onClick={startNew}
@@ -505,6 +557,14 @@ export function EstimateBuilder() {
           exclusions and terms &amp; conditions.
         </p>
       </aside>
+
+      {previewUrl ? (
+        <PreviewDialog
+          url={previewUrl}
+          onClose={closePreview}
+          onDownload={() => void exportPdf()}
+        />
+      ) : null}
 
       {notice ? (
         <div
@@ -617,9 +677,11 @@ function EditRow({
         </p>
         <div className="flex gap-2">
           <Button variant="secondary" size="sm" onClick={onCancel}>
+            <Icon name="close" />
             Cancel
           </Button>
           <Button size="sm" onClick={onSave}>
+            <Icon name="check" />
             Save changes
           </Button>
         </div>
@@ -650,5 +712,89 @@ function IconButton({
     >
       {children}
     </button>
+  )
+}
+
+/** Full-screen PDF preview for desktop. Esc or the backdrop closes it. */
+function PreviewDialog({
+  url,
+  onClose,
+  onDownload,
+}: {
+  url: string
+  onClose: () => void
+  onDownload: () => void
+}) {
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeRef.current?.focus()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = overflow
+    }
+  }, [onClose])
+
+  return (
+    <div role="dialog" aria-modal="true" aria-label="PDF preview" className="fixed inset-0 z-50 flex flex-col">
+      <button
+        type="button"
+        aria-label="Close preview"
+        tabIndex={-1}
+        className="absolute inset-0 bg-ink/60 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative mx-auto mt-6 flex w-[min(64rem,calc(100%-2rem))] flex-1 flex-col overflow-hidden rounded-[2px] bg-surface shadow-2xl sm:mb-6">
+        <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+          <p className="font-display text-lg">PDF preview</p>
+          <div className="flex gap-2">
+            <Button size="sm" onClick={onDownload}>
+              <Icon name="download" />
+              Download
+            </Button>
+            <Button ref={closeRef} variant="secondary" size="sm" onClick={onClose}>
+              <Icon name="close" />
+              Close
+            </Button>
+          </div>
+        </div>
+        <iframe title="Estimate PDF preview" src={url} className="h-full w-full flex-1 bg-surface-sunken" />
+      </div>
+    </div>
+  )
+}
+
+const ICON_PATHS = {
+  plus: 'M12 5v14M5 12h14',
+  edit: 'M4 20h4L18.5 9.5a2.1 2.1 0 0 0-4-4L4 16v4ZM13.5 6.5l4 4',
+  copy: 'M9 9h10v10H9zM5 15V5h10',
+  trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
+  download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  close: 'M6 6l12 12M18 6 6 18',
+  check: 'M5 12.5l4.5 4.5L19 7.5',
+} as const
+
+/** Line icons drawn in the current text colour. Decorative: the label carries the meaning. */
+function Icon({ name }: { name: keyof typeof ICON_PATHS }) {
+  return (
+    <svg
+      aria-hidden
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className="size-4 shrink-0"
+    >
+      <path d={ICON_PATHS[name]} />
+    </svg>
   )
 }

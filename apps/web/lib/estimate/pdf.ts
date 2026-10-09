@@ -21,6 +21,9 @@ const MUTED: [number, number, number] = [131, 126, 116]
 const ACCENT: [number, number, number] = [169, 113, 75]
 const ACCENT_SOFT: [number, number, number] = [242, 232, 224]
 const CANVAS: [number, number, number] = [247, 245, 241]
+/** Deeper brass for the grand-total bar, so it reads as the final figure. */
+const ACCENT_DEEP: [number, number, number] = [124, 82, 54]
+const ON_ACCENT: [number, number, number] = [255, 255, 255]
 const LINE: [number, number, number] = [226, 222, 213]
 
 const WEBSITE_URL = 'https://www.omarchdesigns.com'
@@ -48,7 +51,24 @@ async function loadLogo(): Promise<string | null> {
   }
 }
 
+export function estimateFileName(estimate: Estimate): string {
+  const name = estimate.clientName.trim() || 'Interior Quotation'
+  const safe = name.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').toLowerCase()
+  return `${safe || 'interior_estimate'}.pdf`
+}
+
 export async function downloadEstimatePdf(estimate: Estimate): Promise<void> {
+  const doc = await buildEstimatePdf(estimate)
+  doc.save(estimateFileName(estimate))
+}
+
+/** Returns an object URL for the PDF; the caller must revoke it when done. */
+export async function previewEstimatePdf(estimate: Estimate): Promise<string> {
+  const doc = await buildEstimatePdf(estimate)
+  return URL.createObjectURL(doc.output('blob'))
+}
+
+async function buildEstimatePdf(estimate: Estimate): Promise<Doc> {
   const [{ jsPDF: JsPdf }, { autoTable }, logo] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -152,8 +172,8 @@ export async function downloadEstimatePdf(estimate: Estimate): Promise<void> {
     showFoot: 'lastPage',
     theme: 'plain',
     styles: { font: 'helvetica', fontSize: 9.5, textColor: INK, cellPadding: 3, lineColor: LINE, lineWidth: { bottom: 0.2 } },
-    headStyles: { fillColor: INK, textColor: [250, 249, 247], fontStyle: 'bold', fontSize: 8.5, lineWidth: 0 },
-    footStyles: { fillColor: INK, textColor: [250, 249, 247], fontStyle: 'bold', fontSize: 11, lineWidth: 0 },
+    headStyles: { fillColor: ACCENT, textColor: ON_ACCENT, fontStyle: 'bold', fontSize: 8.5, lineWidth: 0 },
+    footStyles: { fillColor: ACCENT_DEEP, textColor: ON_ACCENT, fontStyle: 'bold', fontSize: 11, lineWidth: 0 },
     columnStyles: {
       0: { halign: 'center', cellWidth: 10, textColor: MUTED },
       2: { halign: 'right', cellWidth: 16 },
@@ -337,6 +357,6 @@ export async function downloadEstimatePdf(estimate: Estimate): Promise<void> {
     doc.text(`Page ${page} of ${pages}`, pageWidth - marginX, pageHeight - 7, { align: 'right' })
   }
 
-  const safeName = clientName.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').toLowerCase()
-  doc.save(`${safeName || 'interior_estimate'}.pdf`)
+  doc.setProperties({ title: `${clientName} — Interior Cost Estimate`, author: 'OM Arch Designs' })
+  return doc
 }
