@@ -3,6 +3,7 @@ import Link from 'next/link'
 import { getPublicEnv } from '@crm/config'
 import { getPublicFormOptions } from '@/lib/modules/options/service'
 import { ProjectForm } from '@/components/public/project-form'
+import { BrandLogo } from '@/components/ui/brand-logo'
 
 export const metadata: Metadata = {
   title: 'Start your project',
@@ -21,9 +22,7 @@ export default async function StartProjectPage() {
     <div className="flex min-h-dvh flex-col bg-canvas">
       <header className="border-b border-line">
         <div className="mx-auto flex h-16 max-w-[84rem] items-center justify-between px-5 sm:h-20 sm:px-8">
-          <Link href="/" className="font-display text-lg tracking-tight sm:text-xl">
-            {env.companyName}
-          </Link>
+          <BrandLogo companyName={env.companyName} href="/" />
           <Link href="/" className="text-sm text-ink-muted transition-colors hover:text-ink">
             Save and exit
           </Link>

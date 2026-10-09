@@ -10,7 +10,7 @@ export const metadata: Metadata = {
     template: isTestSite ? '[TEST] %s · OMA Designs' : '%s · OMA Designs',
   },
   description:
-    'OMA Designs — residential and commercial interior design and construction in Vadodara, Gujarat. Considered spaces, delivered end to end.',
+    'OM Arch Designs (OMA Designs) — residential and commercial interior design and construction in Vadodara, Gujarat. Considered spaces, delivered end to end.',
   // The test site must never show up in Google next to the real one.
   robots: isTestSite ? { index: false, follow: false } : { index: true, follow: true },
 }

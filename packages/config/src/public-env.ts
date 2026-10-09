@@ -7,7 +7,10 @@
  */
 export type PublicEnv = {
   appUrl: string
+  /** Short name for tight spots: header, sidebar, tab titles. */
   companyName: string
+  /** Full registered name, shown where there is room: footer, copyright. */
+  companyFullName: string
   companyPhone: string
   companyWhatsApp: string
   companyEmail: string
@@ -23,6 +26,7 @@ export function getPublicEnv(): PublicEnv {
   return {
     appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'http://localhost:3000',
     companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || 'OMA Designs',
+    companyFullName: process.env.NEXT_PUBLIC_COMPANY_FULL_NAME || 'OM Arch Designs',
     companyPhone: process.env.NEXT_PUBLIC_COMPANY_PHONE ?? '',
     companyWhatsApp: process.env.NEXT_PUBLIC_COMPANY_WHATSAPP ?? '',
     companyEmail: process.env.NEXT_PUBLIC_COMPANY_EMAIL ?? '',

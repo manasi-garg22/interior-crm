@@ -1,13 +1,11 @@
-import Link from 'next/link'
+import { BrandLogo } from '@/components/ui/brand-logo'
 import { ButtonLink } from '@/components/ui/button'
 
 export function SiteHeader({ companyName }: { companyName: string }) {
   return (
     <header className="sticky top-0 z-40 border-b border-line/70 bg-canvas/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-[84rem] items-center justify-between px-5 sm:h-20 sm:px-8">
-        <Link href="/" className="font-display text-lg tracking-tight sm:text-xl">
-          {companyName}
-        </Link>
+        <BrandLogo companyName={companyName} href="/" />
 
         <nav className="hidden items-center gap-9 text-sm text-ink-soft md:flex">
           <a href="#work" className="transition-colors hover:text-ink">

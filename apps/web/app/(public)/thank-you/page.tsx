@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { getPublicEnv } from '@crm/config'
+import { BrandLogo } from '@/components/ui/brand-logo'
 import { ButtonLink } from '@/components/ui/button'
 
 export const metadata: Metadata = {
@@ -35,9 +36,7 @@ export default async function ThankYouPage(props: {
     <div className="flex min-h-dvh flex-col bg-canvas">
       <header className="border-b border-line">
         <div className="mx-auto flex h-16 max-w-[84rem] items-center px-5 sm:h-20 sm:px-8">
-          <Link href="/" className="font-display text-lg tracking-tight sm:text-xl">
-            {env.companyName}
-          </Link>
+          <BrandLogo companyName={env.companyName} href="/" />
         </div>
       </header>
 

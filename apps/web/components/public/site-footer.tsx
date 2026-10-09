@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { BrandLogo } from '@/components/ui/brand-logo'
 
 export function SiteFooter({
   companyName,
@@ -24,7 +25,7 @@ export function SiteFooter({
       <div className="mx-auto max-w-[84rem] px-5 py-16 sm:px-8 sm:py-20">
         <div className="grid gap-12 md:grid-cols-[1.5fr_1fr_1fr]">
           <div>
-            <p className="font-display text-2xl tracking-tight">{companyName}</p>
+            <BrandLogo companyName={companyName} size="lg" />
             <p className="mt-3 max-w-sm text-sm leading-relaxed text-ink-muted">
               Interior design and construction for homes and commercial spaces. Design, execution
               and handover under one roof.

@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils/cn'
+import { BrandLogo } from '@/components/ui/brand-logo'
 import { Button } from '@/components/ui/button'
 import type { NavItem } from './nav-items'
 
@@ -68,7 +69,7 @@ export function CrmShell({ items, companyName, user, signOutAction, children }: 
               ☰
             </span>
           </Button>
-          <span className="font-display text-base tracking-tight">{companyName}</span>
+          <BrandLogo companyName={companyName} size="sm" />
         </header>
 
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
@@ -97,9 +98,7 @@ function SidebarContent({
   return (
     <>
       <div className="flex h-16 items-center border-b border-line px-5">
-        <Link href="/dashboard" className="font-display text-lg tracking-tight" onClick={onNavigate}>
-          {companyName}
-        </Link>
+        <BrandLogo companyName={companyName} href="/dashboard" size="sm" onClick={onNavigate} />
       </div>
 
       <nav className="flex-1 overflow-y-auto p-3">

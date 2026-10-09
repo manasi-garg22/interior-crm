@@ -8,7 +8,7 @@ import { SiteFooter } from '@/components/public/site-footer'
 export const metadata: Metadata = {
   title: 'Interior Design & Construction in Vadodara',
   description:
-    'OMA Designs — considered interiors for homes, offices, restaurants and retail in Vadodara, Gujarat. Design, execution and handover under one roof.',
+    'OM Arch Designs (OMA Designs) — considered interiors for homes, offices, restaurants and retail in Vadodara, Gujarat. Design, execution and handover under one roof.',
 }
 
 // Sample photography until the studio's own project photos are in.
@@ -236,7 +236,7 @@ export default function LandingPage() {
       </main>
 
       <SiteFooter
-        companyName={env.companyName}
+        companyName={env.companyFullName}
         phone={env.companyPhone}
         whatsapp={env.companyWhatsApp}
         email={env.companyEmail}
