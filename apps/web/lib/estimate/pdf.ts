@@ -116,9 +116,9 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
   if (isBill) {
     // Bill: the document type is the headline; client details sit small below.
     doc.setFont('times', 'bold')
-    doc.setFontSize(30)
-    doc.setTextColor(...ACCENT_DEEP)
-    doc.text('BILL', pageWidth - marginX, 19, { align: 'right' })
+    doc.setFontSize(22)
+    doc.setTextColor(...INK)
+    doc.text('BILL', pageWidth - marginX, 17, { align: 'right' })
 
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
@@ -131,7 +131,6 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
       doc.text(value, pageWidth - marginX, lineY, { align: 'right' })
       lineY += 4.6
     }
-    if (estimate.billNumber?.trim()) meta('Bill No.', estimate.billNumber.trim())
     if (dateStr) meta('Date', dateStr)
     if (clientName) meta('Billed to', doc.splitTextToSize(clientName, 70)[0] ?? clientName)
   } else {
@@ -279,6 +278,23 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
     doc.text('For OM Arch Designs', pageWidth - marginX, y + 5, { align: 'right' })
     doc.setTextColor(...MUTED)
     doc.text('Authorised Signatory', pageWidth - marginX, y + 9.5, { align: 'right' })
+    y += 22
+
+    // Clickable website link, centred under the signature block.
+    ensureSpace(14)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...MUTED)
+    doc.text('Thank you for choosing OM Arch Designs', pageWidth / 2, y, { align: 'center' })
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10.5)
+    doc.setTextColor(...ACCENT)
+    const linkWidth = doc.getTextWidth(WEBSITE_LABEL)
+    const linkX = (pageWidth - linkWidth) / 2
+    doc.textWithLink(WEBSITE_LABEL, linkX, y + 6, { url: WEBSITE_URL })
+    doc.setDrawColor(...ACCENT)
+    doc.setLineWidth(0.2)
+    doc.line(linkX, y + 7, linkX + linkWidth, y + 7)
   }
 
   // ── Terms, specifications and conditions ────────────────────

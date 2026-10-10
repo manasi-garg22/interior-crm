@@ -18,8 +18,6 @@ export type DocumentKind = 'estimate' | 'bill'
 
 export type Estimate = {
   clientName: string
-  /** Printed on bills only; optional. */
-  billNumber?: string
   /** yyyy-mm-dd, as an <input type="date"> produces. */
   date: string
   remarks: string

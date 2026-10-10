@@ -100,7 +100,6 @@ export function EstimateBuilder() {
         const parsed = JSON.parse(saved) as Partial<Estimate>
         restored = {
           clientName: parsed.clientName ?? '',
-          billNumber: parsed.billNumber ?? '',
           date: parsed.date || today(),
           remarks: parsed.remarks ?? '',
           items: Array.isArray(parsed.items) ? parsed.items : [],
@@ -290,7 +289,7 @@ export function EstimateBuilder() {
         {/* ── Client ─────────────────────────────────────────── */}
         <section className="border border-line bg-surface p-5 sm:p-6">
           <p className="eyebrow">Client</p>
-          <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_12rem_10rem]">
+          <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_12rem]">
             <Field label="Client / project name">
               {(field) => (
                 <TextInput
@@ -311,16 +310,7 @@ export function EstimateBuilder() {
                 />
               )}
             </Field>
-            <Field label="Bill no." hint="Bills only">
-              {(field) => (
-                <TextInput
-                  {...field}
-                  value={estimate.billNumber ?? ''}
-                  onChange={(event) => patch({ billNumber: event.target.value })}
-                  placeholder="e.g. OMA-101"
-                />
-              )}
-            </Field>
+
           </div>
           <div className="mt-5">
             <Field label="Remarks" hint="Printed below the item table in the PDF.">
