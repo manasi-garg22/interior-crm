@@ -11,9 +11,12 @@ import {
   grandTotal,
   groupByRoom,
   lineTotal,
+  type DocumentKind,
   type Estimate,
   type EstimateItem,
 } from '@/lib/estimate/types'
+
+const KIND_LABEL: Record<DocumentKind, string> = { estimate: 'Estimate', bill: 'Bill' }
 
 const STORAGE_KEY = 'oma:estimate-draft'
 
@@ -78,6 +81,7 @@ export function EstimateBuilder() {
   const [editError, setEditError] = useState<string | null>(null)
   const [exporting, setExporting] = useState<'download' | 'preview' | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [kind, setKind] = useState<DocumentKind>('estimate')
   const [notice, setNotice] = useState<string | null>(null)
   const itemNameRef = useRef<HTMLInputElement>(null)
   const roomListId = useId()
@@ -96,6 +100,7 @@ export function EstimateBuilder() {
         const parsed = JSON.parse(saved) as Partial<Estimate>
         restored = {
           clientName: parsed.clientName ?? '',
+          billNumber: parsed.billNumber ?? '',
           date: parsed.date || today(),
           remarks: parsed.remarks ?? '',
           items: Array.isArray(parsed.items) ? parsed.items : [],
@@ -226,7 +231,7 @@ export function EstimateBuilder() {
     setExporting('download')
     try {
       const { downloadEstimatePdf } = await import('@/lib/estimate/pdf')
-      await downloadEstimatePdf(estimate)
+      await downloadEstimatePdf(estimate, kind)
     } catch {
       flash('Could not create the PDF. Please try again.')
     } finally {
@@ -243,7 +248,7 @@ export function EstimateBuilder() {
     setExporting('preview')
     try {
       const { previewEstimatePdf } = await import('@/lib/estimate/pdf')
-      const url = await previewEstimatePdf(estimate)
+      const url = await previewEstimatePdf(estimate, kind)
       if (tab) {
         tab.location.href = url
         // The tab has its own copy once loaded; free ours after a while.
@@ -285,7 +290,7 @@ export function EstimateBuilder() {
         {/* ── Client ─────────────────────────────────────────── */}
         <section className="border border-line bg-surface p-5 sm:p-6">
           <p className="eyebrow">Client</p>
-          <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_12rem]">
+          <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_12rem_10rem]">
             <Field label="Client / project name">
               {(field) => (
                 <TextInput
@@ -303,6 +308,16 @@ export function EstimateBuilder() {
                   type="date"
                   value={estimate.date}
                   onChange={(event) => patch({ date: event.target.value })}
+                />
+              )}
+            </Field>
+            <Field label="Bill no." hint="Bills only">
+              {(field) => (
+                <TextInput
+                  {...field}
+                  value={estimate.billNumber ?? ''}
+                  onChange={(event) => patch({ billNumber: event.target.value })}
+                  placeholder="e.g. OMA-101"
                 />
               )}
             </Field>
@@ -515,7 +530,37 @@ export function EstimateBuilder() {
             </ul>
           ) : null}
 
-          <div className="mt-6 grid gap-2.5">
+          {/* Same items, two documents: a quotation with terms, or a plain bill. */}
+          <div
+            role="radiogroup"
+            aria-label="Document type"
+            className="mt-6 grid grid-cols-2 rounded-[2px] border border-ink-inverse/25 p-1"
+          >
+            {(['estimate', 'bill'] as const).map((option) => (
+              <button
+                key={option}
+                type="button"
+                role="radio"
+                aria-checked={kind === option}
+                onClick={() => setKind(option)}
+                className={cn(
+                  'h-9 rounded-[2px] text-sm font-medium',
+                  kind === option
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'bg-transparent text-ink-inverse/75 hover:bg-ink-inverse/10 hover:text-ink-inverse',
+                )}
+              >
+                {KIND_LABEL[option]}
+              </button>
+            ))}
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-ink-inverse/60">
+            {kind === 'estimate'
+              ? 'Quotation with payment terms, specifications and T&C.'
+              : 'Bill with items, total and amount in words — no terms.'}
+          </p>
+
+          <div className="mt-4 grid gap-2.5">
             <Button
               variant="inverse"
               size="lg"
@@ -524,7 +569,7 @@ export function EstimateBuilder() {
               disabled={exporting !== null}
             >
               <Icon name="download" />
-              {exporting === 'download' ? 'Preparing PDF…' : 'Download PDF'}
+              {exporting === 'download' ? 'Preparing PDF…' : `Download ${KIND_LABEL[kind].toLowerCase()}`}
             </Button>
             <Button
               size="lg"
@@ -533,7 +578,7 @@ export function EstimateBuilder() {
               disabled={exporting !== null}
             >
               <Icon name="eye" />
-              {exporting === 'preview' ? 'Preparing preview…' : 'Preview PDF'}
+              {exporting === 'preview' ? 'Preparing preview…' : `Preview ${KIND_LABEL[kind].toLowerCase()}`}
             </Button>
           </div>
           <button
@@ -545,14 +590,15 @@ export function EstimateBuilder() {
           </button>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-          Saved automatically in this browser. The PDF includes payment terms, specifications,
-          exclusions and terms &amp; conditions.
+          Saved automatically in this browser. Switch between Estimate and Bill any time — the
+          items stay the same.
         </p>
       </aside>
 
       {previewUrl ? (
         <PreviewDialog
           url={previewUrl}
+          title={`${KIND_LABEL[kind]} preview`}
           onClose={closePreview}
           onDownload={() => void exportPdf()}
         />
@@ -718,10 +764,12 @@ function IconButton({
 /** Full-screen PDF preview for desktop. Esc or the backdrop closes it. */
 function PreviewDialog({
   url,
+  title,
   onClose,
   onDownload,
 }: {
   url: string
+  title: string
   onClose: () => void
   onDownload: () => void
 }) {
@@ -742,7 +790,7 @@ function PreviewDialog({
   }, [onClose])
 
   return (
-    <div role="dialog" aria-modal="true" aria-label="PDF preview" className="fixed inset-0 z-50 flex flex-col">
+    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-50 flex flex-col">
       <button
         type="button"
         aria-label="Close preview"
@@ -752,7 +800,7 @@ function PreviewDialog({
       />
       <div className="relative mx-auto mt-6 flex w-[min(64rem,calc(100%-2rem))] flex-1 flex-col overflow-hidden rounded-[2px] bg-surface shadow-2xl sm:mb-6">
         <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
-          <p className="font-display text-lg">PDF preview</p>
+          <p className="font-display text-lg">{title}</p>
           <div className="flex gap-2">
             <Button size="sm" onClick={onDownload}>
               <Icon name="download" />
@@ -764,7 +812,7 @@ function PreviewDialog({
             </Button>
           </div>
         </div>
-        <iframe title="Estimate PDF preview" src={url} className="h-full w-full flex-1 bg-surface-sunken" />
+        <iframe title={title} src={url} className="h-full w-full flex-1 bg-surface-sunken" />
       </div>
     </div>
   )

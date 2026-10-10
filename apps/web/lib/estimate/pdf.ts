@@ -12,7 +12,15 @@
 // on-demand loading below.
 import type { jsPDF } from 'jspdf'
 import type { RowInput } from 'jspdf-autotable'
-import { formatRs, grandTotal, groupByRoom, lineTotal, type Estimate } from './types'
+import {
+  amountInWords,
+  formatRs,
+  grandTotal,
+  groupByRoom,
+  lineTotal,
+  type DocumentKind,
+  type Estimate,
+} from './types'
 
 // Brand palette (matches the website).
 const INK: [number, number, number] = [27, 26, 23]
@@ -51,24 +59,25 @@ async function loadLogo(): Promise<string | null> {
   }
 }
 
-export function estimateFileName(estimate: Estimate): string {
-  const name = estimate.clientName.trim() || 'Interior Quotation'
+export function estimateFileName(estimate: Estimate, kind: DocumentKind = 'estimate'): string {
+  const name = estimate.clientName.trim() || (kind === 'bill' ? 'Interior Bill' : 'Interior Quotation')
   const safe = name.replace(/[^a-z0-9]+/gi, '_').replace(/^_|_$/g, '').toLowerCase()
-  return `${safe || 'interior_estimate'}.pdf`
+  return `${safe || 'interior'}_${kind}.pdf`
 }
 
-export async function downloadEstimatePdf(estimate: Estimate): Promise<void> {
-  const doc = await buildEstimatePdf(estimate)
-  doc.save(estimateFileName(estimate))
+export async function downloadEstimatePdf(estimate: Estimate, kind: DocumentKind = 'estimate'): Promise<void> {
+  const doc = await buildEstimatePdf(estimate, kind)
+  doc.save(estimateFileName(estimate, kind))
 }
 
 /** Returns an object URL for the PDF; the caller must revoke it when done. */
-export async function previewEstimatePdf(estimate: Estimate): Promise<string> {
-  const doc = await buildEstimatePdf(estimate)
+export async function previewEstimatePdf(estimate: Estimate, kind: DocumentKind = 'estimate'): Promise<string> {
+  const doc = await buildEstimatePdf(estimate, kind)
   return URL.createObjectURL(doc.output('blob'))
 }
 
-async function buildEstimatePdf(estimate: Estimate): Promise<Doc> {
+async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise<Doc> {
+  const isBill = kind === 'bill'
   const [{ jsPDF: JsPdf }, { autoTable }, logo] = await Promise.all([
     import('jspdf'),
     import('jspdf-autotable'),
@@ -82,7 +91,7 @@ async function buildEstimatePdf(estimate: Estimate): Promise<Doc> {
   const marginBottom = 20
   const contentWidth = pageWidth - marginX * 2
 
-  const clientName = estimate.clientName.trim() || 'Interior Quotation'
+  const clientName = estimate.clientName.trim() || (isBill ? '' : 'Interior Quotation')
   const dateStr = estimate.date
     ? new Date(`${estimate.date}T00:00:00`).toLocaleDateString('en-IN', {
         day: 'numeric',
@@ -104,22 +113,45 @@ async function buildEstimatePdf(estimate: Estimate): Promise<Doc> {
     doc.text('OM ARCH DESIGNS', marginX, 22)
   }
 
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(8)
-  doc.setTextColor(...MUTED)
-  // No charSpace here: jsPDF measures right-aligned text without it, which
-  // pushed the label off the page edge.
-  doc.text('INTERIOR COST ESTIMATE', pageWidth - marginX, 15, { align: 'right' })
-  doc.setFont('times', 'normal')
-  doc.setFontSize(16)
-  doc.setTextColor(...INK)
-  const titleLines = doc.splitTextToSize(clientName, 95)
-  doc.text(titleLines, pageWidth - marginX, 23, { align: 'right' })
-  if (dateStr) {
+  if (isBill) {
+    // Bill: the document type is the headline; client details sit small below.
+    doc.setFont('times', 'bold')
+    doc.setFontSize(30)
+    doc.setTextColor(...ACCENT_DEEP)
+    doc.text('BILL', pageWidth - marginX, 19, { align: 'right' })
+
     doc.setFont('helvetica', 'normal')
-    doc.setFontSize(9.5)
-    doc.setTextColor(...INK_SOFT)
-    doc.text(dateStr, pageWidth - marginX, 23 + titleLines.length * 6.5, { align: 'right' })
+    doc.setFontSize(9)
+    let lineY = 26
+    const meta = (label: string, value: string) => {
+      doc.setTextColor(...MUTED)
+      const valueWidth = doc.getTextWidth(value)
+      doc.text(label, pageWidth - marginX - valueWidth - 2, lineY, { align: 'right' })
+      doc.setTextColor(...INK)
+      doc.text(value, pageWidth - marginX, lineY, { align: 'right' })
+      lineY += 4.6
+    }
+    if (estimate.billNumber?.trim()) meta('Bill No.', estimate.billNumber.trim())
+    if (dateStr) meta('Date', dateStr)
+    if (clientName) meta('Billed to', doc.splitTextToSize(clientName, 70)[0] ?? clientName)
+  } else {
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...MUTED)
+    // No charSpace here: jsPDF measures right-aligned text without it, which
+    // pushed the label off the page edge.
+    doc.text('INTERIOR COST ESTIMATE', pageWidth - marginX, 15, { align: 'right' })
+    doc.setFont('times', 'normal')
+    doc.setFontSize(16)
+    doc.setTextColor(...INK)
+    const titleLines = doc.splitTextToSize(clientName, 95)
+    doc.text(titleLines, pageWidth - marginX, 23, { align: 'right' })
+    if (dateStr) {
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(9.5)
+      doc.setTextColor(...INK_SOFT)
+      doc.text(dateStr, pageWidth - marginX, 23 + titleLines.length * 6.5, { align: 'right' })
+    }
   }
 
   doc.setDrawColor(...ACCENT)
@@ -212,6 +244,41 @@ async function buildEstimatePdf(estimate: Estimate): Promise<Doc> {
     doc.setTextColor(...INK_SOFT)
     doc.text(lines, marginX + 5, y + 13)
     y += boxHeight + 10
+  }
+
+  if (isBill) {
+    addBillClosing()
+    addFooters()
+    doc.setProperties({ title: `Bill — ${clientName || 'OM Arch Designs'}`, author: 'OM Arch Designs' })
+    return doc
+  }
+
+  /** Amount in words and a signature block — what a bill needs, nothing more. */
+  function addBillClosing() {
+    const words: string[] = doc.splitTextToSize(amountInWords(grandTotal(estimate.items)), contentWidth - 10)
+    const boxHeight = words.length * 5 + 13
+    ensureSpace(boxHeight + 40)
+    doc.setFillColor(...ACCENT_SOFT)
+    doc.roundedRect(marginX, y, contentWidth, boxHeight, 1, 1, 'F')
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.setTextColor(...ACCENT)
+    doc.text('AMOUNT IN WORDS', marginX + 5, y + 7, { charSpace: 0.5 })
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(...INK)
+    doc.text(words, marginX + 5, y + 13)
+    y += boxHeight + 26
+
+    doc.setDrawColor(...INK_SOFT)
+    doc.setLineWidth(0.3)
+    doc.line(pageWidth - marginX - 60, y, pageWidth - marginX, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(9)
+    doc.setTextColor(...INK_SOFT)
+    doc.text('For OM Arch Designs', pageWidth - marginX, y + 5, { align: 'right' })
+    doc.setTextColor(...MUTED)
+    doc.text('Authorised Signatory', pageWidth - marginX, y + 9.5, { align: 'right' })
   }
 
   // ── Terms, specifications and conditions ────────────────────
@@ -343,20 +410,23 @@ async function buildEstimatePdf(estimate: Estimate): Promise<Doc> {
   doc.setLineWidth(0.2)
   doc.line(linkX, y + 21, linkX + linkWidth, y + 21)
 
-  // ── Footer on every page ────────────────────────────────────
-  const pages = doc.getNumberOfPages()
-  for (let page = 1; page <= pages; page += 1) {
-    doc.setPage(page)
-    doc.setDrawColor(...LINE)
-    doc.setLineWidth(0.2)
-    doc.line(marginX, pageHeight - 12, pageWidth - marginX, pageHeight - 12)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
-    doc.setTextColor(...MUTED)
-    doc.text('OM Arch Designs · Vadodara', marginX, pageHeight - 7)
-    doc.text(`Page ${page} of ${pages}`, pageWidth - marginX, pageHeight - 7, { align: 'right' })
-  }
-
+  addFooters()
   doc.setProperties({ title: `${clientName} — Interior Cost Estimate`, author: 'OM Arch Designs' })
   return doc
+
+  /** Company line and page numbers on every page. */
+  function addFooters() {
+    const pages = doc.getNumberOfPages()
+    for (let page = 1; page <= pages; page += 1) {
+      doc.setPage(page)
+      doc.setDrawColor(...LINE)
+      doc.setLineWidth(0.2)
+      doc.line(marginX, pageHeight - 12, pageWidth - marginX, pageHeight - 12)
+      doc.setFont('helvetica', 'normal')
+      doc.setFontSize(8)
+      doc.setTextColor(...MUTED)
+      doc.text('OM Arch Designs · Vadodara', marginX, pageHeight - 7)
+      doc.text(`Page ${page} of ${pages}`, pageWidth - marginX, pageHeight - 7, { align: 'right' })
+    }
+  }
 }
