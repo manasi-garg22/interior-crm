@@ -21,6 +21,7 @@ import {
   type DocumentKind,
   type Estimate,
 } from './types'
+import { EMBED_NAMESPACE, encodeEstimate } from './embed'
 
 // Brand palette (matches the website).
 const INK: [number, number, number] = [27, 26, 23]
@@ -85,6 +86,8 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
   ])
 
   const doc = new JsPdf({ unit: 'mm', format: 'a4' })
+  // Hidden copy of the estimate, so this PDF can be uploaded and edited later.
+  doc.addMetadata(encodeEstimate(estimate), EMBED_NAMESPACE)
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const marginX = 14
@@ -105,7 +108,8 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
   doc.rect(0, 0, pageWidth, 40, 'F')
   if (logo) {
     // Source logo is 560×400; 30mm wide keeps it crisp and compact.
-    doc.addImage(logo, 'PNG', marginX - 2, 5, 42, 30)
+    // FAST = Flate-compressed; uncompressed, this logo alone made PDFs ~3.5 MB.
+    doc.addImage(logo, 'PNG', marginX - 2, 5, 42, 30, 'oma-logo', 'FAST')
   } else {
     doc.setFont('times', 'normal')
     doc.setFontSize(20)

@@ -16,6 +16,8 @@ import {
   type EstimateItem,
 } from '@/lib/estimate/types'
 
+import { MAX_UPLOAD_BYTES, decodeEstimateFromPdf } from '@/lib/estimate/embed'
+
 const KIND_LABEL: Record<DocumentKind, string> = { estimate: 'Estimate', bill: 'Bill' }
 
 const STORAGE_KEY = 'oma:estimate-draft'
@@ -82,6 +84,8 @@ export function EstimateBuilder() {
   const [exporting, setExporting] = useState<'download' | 'preview' | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [kind, setKind] = useState<DocumentKind>('estimate')
+  const [importing, setImporting] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const [notice, setNotice] = useState<string | null>(null)
   const itemNameRef = useRef<HTMLInputElement>(null)
   const roomListId = useId()
@@ -206,6 +210,43 @@ export function EstimateBuilder() {
     })
   }
 
+  /** Restores an estimate from a PDF this tool generated earlier. */
+  async function openPdf(file: File | undefined) {
+    if (fileRef.current) fileRef.current.value = '' // allow re-uploading the same file
+    if (!file) return
+    if (file.size > MAX_UPLOAD_BYTES) {
+      flash('That file is too large. Upload the PDF downloaded from this tool.')
+      return
+    }
+    if (
+      estimate.items.length &&
+      !window.confirm('Replace the current items with the ones in this PDF?')
+    ) {
+      return
+    }
+    setImporting(true)
+    try {
+      const result = decodeEstimateFromPdf(await file.arrayBuffer(), newId)
+      if (!result.ok) {
+        flash(
+          result.reason === 'not-ours'
+            ? 'This PDF was not made with this tool (or was made before uploads were supported).'
+            : 'This PDF could not be read. It may be damaged.',
+        )
+        return
+      }
+      setEstimate({ ...result.estimate, date: result.estimate.date || today() })
+      setEditingId(null)
+      setDraft(BLANK_DRAFT)
+      const count = result.estimate.items.length
+      flash(`Loaded ${count} ${count === 1 ? 'item' : 'items'} — edit them, or switch to Bill.`)
+    } catch {
+      flash('Could not read that file. Please try again.')
+    } finally {
+      setImporting(false)
+    }
+  }
+
   function startNew() {
     if (estimate.items.length && !window.confirm('Start a new estimate? The current one will be cleared.')) return
     setEstimate({ ...EMPTY, date: today() })
@@ -286,6 +327,34 @@ export function EstimateBuilder() {
       </datalist>
 
       <div className="min-w-0 space-y-6">
+        {/* ── Open a saved PDF ───────────────────────────────── */}
+        <section className="flex flex-col gap-4 border border-dashed border-line-strong bg-surface px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+          <div>
+            <p className="font-medium">Edit an existing quotation or bill</p>
+            <p className="mt-0.5 text-sm text-ink-muted">
+              Upload a PDF made with this tool to edit it, or switch it to a bill.
+            </p>
+          </div>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="application/pdf,.pdf"
+            className="sr-only"
+            tabIndex={-1}
+            aria-hidden
+            onChange={(event) => void openPdf(event.target.files?.[0])}
+          />
+          <Button
+            variant="secondary"
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+            className="shrink-0"
+          >
+            <Icon name="upload" />
+            {importing ? 'Reading PDF…' : 'Upload PDF'}
+          </Button>
+        </section>
+
         {/* ── Client ─────────────────────────────────────────── */}
         <section className="border border-line bg-surface p-5 sm:p-6">
           <p className="eyebrow">Client</p>
@@ -814,6 +883,7 @@ const ICON_PATHS = {
   copy: 'M9 9h10v10H9zM5 15V5h10',
   trash: 'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',
   download: 'M12 4v11M7 10l5 5 5-5M5 20h14',
+  upload: 'M12 15V4M7 9l5-5 5 5M5 20h14',
   eye: 'M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12ZM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
   close: 'M6 6l12 12M18 6 6 18',
   check: 'M5 12.5l4.5 4.5L19 7.5',
