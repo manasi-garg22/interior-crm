@@ -278,18 +278,27 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
     doc.text('For OM Arch Designs', pageWidth - marginX, y + 5, { align: 'right' })
     doc.setTextColor(...MUTED)
     doc.text('Authorised Signatory', pageWidth - marginX, y + 9.5, { align: 'right' })
-    y += 18
+    y += 12
 
     // Same closing box as the estimate, so both documents end alike.
     addBrandClosing()
   }
 
-  /** "Your space. Our expertise." box with a clickable website link. */
+  /**
+   * "Your space. Our expertise." box with a clickable website link, pinned
+   * to the very bottom of the last page, just above the page footer.
+   */
   function addBrandClosing() {
-    ensureSpace(30)
-    y += 4
+    const boxHeight = 24
+    // Footer rule sits at pageHeight - 12; leave a small gap above it.
+    const pinnedY = pageHeight - 12 - 6 - boxHeight
+    // Content already reaches the bottom: the closing goes on its own page.
+    if (y + 4 > pinnedY) {
+      doc.addPage()
+    }
+    y = pinnedY
     doc.setFillColor(...CANVAS)
-    doc.rect(marginX, y, contentWidth, 24, 'F')
+    doc.rect(marginX, y, contentWidth, boxHeight, 'F')
     doc.setFont('times', 'normal')
     doc.setFontSize(13)
     doc.setTextColor(...INK)
@@ -307,7 +316,7 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
     doc.setDrawColor(...ACCENT)
     doc.setLineWidth(0.2)
     doc.line(linkX, y + 21, linkX + linkWidth, y + 21)
-    y += 28
+    y += boxHeight
   }
 
   // ── Terms, specifications and conditions ────────────────────
