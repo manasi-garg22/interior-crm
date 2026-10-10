@@ -278,23 +278,36 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
     doc.text('For OM Arch Designs', pageWidth - marginX, y + 5, { align: 'right' })
     doc.setTextColor(...MUTED)
     doc.text('Authorised Signatory', pageWidth - marginX, y + 9.5, { align: 'right' })
-    y += 22
+    y += 18
 
-    // Clickable website link, centred under the signature block.
-    ensureSpace(14)
+    // Same closing box as the estimate, so both documents end alike.
+    addBrandClosing()
+  }
+
+  /** "Your space. Our expertise." box with a clickable website link. */
+  function addBrandClosing() {
+    ensureSpace(30)
+    y += 4
+    doc.setFillColor(...CANVAS)
+    doc.rect(marginX, y, contentWidth, 24, 'F')
+    doc.setFont('times', 'normal')
+    doc.setFontSize(13)
+    doc.setTextColor(...INK)
+    doc.text('Your space. Our expertise.', pageWidth / 2, y + 8, { align: 'center' })
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(9)
     doc.setTextColor(...MUTED)
-    doc.text('Thank you for choosing OM Arch Designs', pageWidth / 2, y, { align: 'center' })
+    doc.text('Explore our portfolio and services at', pageWidth / 2, y + 14, { align: 'center' })
     doc.setFont('helvetica', 'bold')
     doc.setFontSize(10.5)
     doc.setTextColor(...ACCENT)
     const linkWidth = doc.getTextWidth(WEBSITE_LABEL)
     const linkX = (pageWidth - linkWidth) / 2
-    doc.textWithLink(WEBSITE_LABEL, linkX, y + 6, { url: WEBSITE_URL })
+    doc.textWithLink(WEBSITE_LABEL, linkX, y + 20, { url: WEBSITE_URL })
     doc.setDrawColor(...ACCENT)
     doc.setLineWidth(0.2)
-    doc.line(linkX, y + 7, linkX + linkWidth, y + 7)
+    doc.line(linkX, y + 21, linkX + linkWidth, y + 21)
+    y += 28
   }
 
   // ── Terms, specifications and conditions ────────────────────
@@ -403,29 +416,7 @@ async function buildEstimatePdf(estimate: Estimate, kind: DocumentKind): Promise
     'The contractor shall not be responsible for delays caused by payment issues or unavoidable circumstances.',
   ])
 
-  // ── Closing: "Know us more" with a clickable website link ───
-  ensureSpace(30)
-  y += 4
-  doc.setFillColor(...CANVAS)
-  doc.rect(marginX, y, contentWidth, 24, 'F')
-  doc.setFont('times', 'normal')
-  doc.setFontSize(13)
-  doc.setTextColor(...INK)
-  doc.text('Your space. Our expertise.', pageWidth / 2, y + 8, { align: 'center' })
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(...MUTED)
-  doc.text('Explore our portfolio and services at', pageWidth / 2, y + 14, { align: 'center' })
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10.5)
-  doc.setTextColor(...ACCENT)
-  const linkWidth = doc.getTextWidth(WEBSITE_LABEL)
-  const linkX = (pageWidth - linkWidth) / 2
-  doc.textWithLink(WEBSITE_LABEL, linkX, y + 20, { url: WEBSITE_URL })
-  doc.setDrawColor(...ACCENT)
-  doc.setLineWidth(0.2)
-  doc.line(linkX, y + 21, linkX + linkWidth, y + 21)
-
+  addBrandClosing()
   addFooters()
   doc.setProperties({ title: `${clientName} — Interior Cost Estimate`, author: 'OM Arch Designs' })
   return doc
