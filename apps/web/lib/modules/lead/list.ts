@@ -2,6 +2,7 @@ import type { Prisma } from '@crm/database'
 import type { LeadFilters } from '@crm/validation'
 import type { SessionUser } from '@/lib/server/session'
 import { leadScopeFor } from '@/lib/server/session'
+import { businessDayEndFromCalendarDate, businessDayStartFromCalendarDate } from '@/lib/time'
 import * as repository from './repository'
 
 /**
@@ -98,8 +99,9 @@ function buildWhere(filters: LeadFilters, user: SessionUser): Prisma.LeadWhereIn
   if (filters.createdFrom || filters.createdTo) {
     conditions.push({
       createdAt: {
-        ...(filters.createdFrom ? { gte: filters.createdFrom } : {}),
-        ...(filters.createdTo ? { lte: endOfDay(filters.createdTo) } : {}),
+        // The filter's dates are IST calendar days.
+        ...(filters.createdFrom ? { gte: businessDayStartFromCalendarDate(filters.createdFrom) } : {}),
+        ...(filters.createdTo ? { lte: businessDayEndFromCalendarDate(filters.createdTo) } : {}),
       },
     })
   }
@@ -115,10 +117,4 @@ function buildOrderBy(filters: LeadFilters): Prisma.LeadOrderByWithRelationInput
   // Only the whitelisted sort fields from the schema reach this point, so
   // the column name can never be attacker-controlled.
   return { [filters.sortBy]: filters.sortDir }
-}
-
-function endOfDay(date: Date): Date {
-  const copy = new Date(date)
-  copy.setHours(23, 59, 59, 999)
-  return copy
 }

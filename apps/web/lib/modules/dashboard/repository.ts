@@ -1,4 +1,5 @@
 import { prisma, LeadStatus, type Prisma } from '@crm/database'
+import { startOfBusinessDay, startOfNextBusinessDay } from '@/lib/time'
 
 /**
  * Dashboard aggregates.
@@ -51,8 +52,9 @@ export async function loadDashboard(
   followUpScope: Prisma.FollowUpWhereInput,
 ): Promise<DashboardData> {
   const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfTomorrow = new Date(startOfToday.getTime() + 86_400_000)
+  // IST day boundaries; the server's own clock is UTC.
+  const startOfToday = startOfBusinessDay(now)
+  const startOfTomorrow = startOfNextBusinessDay(now)
 
   const base: Prisma.LeadWhereInput = { AND: [{ deletedAt: null }, scope] }
 

@@ -189,6 +189,7 @@ export async function createLeadFromSubmission(
       score: scoring.score,
       isRepeatEnquiry: isExistingCustomer,
       details: {
+        receivedAt: lead.createdAt.toISOString(),
         phone: input.phone,
         whatsappNumber: input.whatsappNumber ?? null,
         email: input.email ?? null,

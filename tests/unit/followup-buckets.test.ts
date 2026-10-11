@@ -5,16 +5,19 @@ import {
   isBucket,
   startOfDay,
 } from '../../apps/web/lib/modules/followup/buckets'
+import { istDate } from '../../apps/web/lib/time'
 
+// Every time below is India wall-clock time, built as an exact instant, so
+// these tests pass whatever timezone the machine (or Vercel's UTC) runs in.
 // A mid-afternoon "now", so boundaries are not accidentally satisfied by
 // the test clock sitting at midnight.
-const NOW = new Date(2026, 8, 30, 15, 30, 0)
+const NOW = istDate(2026, 8, 30, 15, 30, 0)
 
 describe('follow-up queue boundaries', () => {
-  it('treats today as local midnight to midnight', () => {
+  it('treats today as IST midnight to midnight', () => {
     const window = bucketWindow('today', NOW)
-    expect(window.from).toEqual(new Date(2026, 8, 30, 0, 0, 0))
-    expect(window.to).toEqual(new Date(2026, 9, 1, 0, 0, 0))
+    expect(window.from).toEqual(istDate(2026, 8, 30, 0, 0, 0))
+    expect(window.to).toEqual(istDate(2026, 9, 1, 0, 0, 0))
     expect(window.status).toBe('PENDING')
   })
 
@@ -39,23 +42,30 @@ describe('classifying a follow-up', () => {
 
   it('puts an earlier time today in the today queue, not overdue', () => {
     // 9am when it is now 3:30pm: still today's work, not yesterday's debt.
-    expect(bucketOf(pending(new Date(2026, 8, 30, 9, 0)), NOW)).toBe('today')
+    expect(bucketOf(pending(istDate(2026, 8, 30, 9, 0)), NOW)).toBe('today')
   })
 
   it('classifies the exact first instant of today as today', () => {
-    expect(bucketOf(pending(new Date(2026, 8, 30, 0, 0, 0)), NOW)).toBe('today')
+    expect(bucketOf(pending(istDate(2026, 8, 30, 0, 0, 0)), NOW)).toBe('today')
   })
 
   it('classifies one millisecond before midnight as overdue', () => {
-    expect(bucketOf(pending(new Date(2026, 8, 29, 23, 59, 59, 999)), NOW)).toBe('overdue')
+    expect(bucketOf(pending(istDate(2026, 8, 29, 23, 59, 59, 999)), NOW)).toBe('overdue')
   })
 
   it('classifies the first instant of tomorrow as upcoming', () => {
-    expect(bucketOf(pending(new Date(2026, 9, 1, 0, 0, 0)), NOW)).toBe('upcoming')
+    expect(bucketOf(pending(istDate(2026, 9, 1, 0, 0, 0)), NOW)).toBe('upcoming')
   })
 
   it('classifies the last instant of today as today', () => {
-    expect(bucketOf(pending(new Date(2026, 8, 30, 23, 59, 59, 999)), NOW)).toBe('today')
+    expect(bucketOf(pending(istDate(2026, 8, 30, 23, 59, 59, 999)), NOW)).toBe('today')
+  })
+
+  it('treats 2am IST as today even though it is still yesterday in UTC', () => {
+    // 2am IST on 30 Sep is 8:30pm UTC on 29 Sep — the case a UTC server got wrong.
+    const earlyMorning = istDate(2026, 8, 30, 2, 0)
+    expect(bucketOf(pending(istDate(2026, 8, 30, 1, 0)), earlyMorning)).toBe('today')
+    expect(bucketOf(pending(istDate(2026, 8, 29, 23, 0)), earlyMorning)).toBe('overdue')
   })
 
   it('never calls a completed follow-up overdue, however old', () => {

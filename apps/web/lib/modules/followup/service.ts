@@ -3,6 +3,7 @@ import { ForbiddenError, NotFoundError, ValidationError } from '@/lib/server/err
 import { followUpScopeFor, type SessionUser } from '@/lib/server/session'
 import { insertActivity, refreshNextFollowUp } from '@/lib/modules/lead/repository'
 import { bucketWindow, type Bucket } from './buckets'
+import { formatDateTime } from '@/lib/time'
 import * as repository from './repository'
 
 /**
@@ -129,7 +130,7 @@ export async function reschedule(
       leadId: followUp.leadId,
       userId: user.id,
       type: ActivityType.FOLLOWUP_SCHEDULED,
-      title: `Follow-up moved to ${input.scheduledAt.toLocaleDateString('en-IN')}`,
+      title: `Follow-up moved to ${formatDateTime(input.scheduledAt)}`,
       description: input.notes ?? null,
       metadata: { from: followUp.id, to: replacement.id },
     })

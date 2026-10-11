@@ -6,6 +6,7 @@ import { requireUser } from '@/lib/server/session'
 import { getCustomerProfile } from '@/lib/modules/customer/service'
 import { PageHeader } from '@/components/crm/page-header'
 import { StatusBadge, TemperatureBadge, titleCase } from '@/components/ui/badge'
+import { formatDate, formatDateTime } from '@/lib/time'
 
 export const metadata: Metadata = { title: 'Customer' }
 export const dynamic = 'force-dynamic'
@@ -163,17 +164,4 @@ function Detail({ label, value }: { label: string; value: string | null | undefi
       <span className="text-right text-[0.9375rem]">{value}</span>
     </div>
   )
-}
-
-function formatDate(date: Date): string {
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
-}
-
-function formatDateTime(date: Date): string {
-  return date.toLocaleString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
 }

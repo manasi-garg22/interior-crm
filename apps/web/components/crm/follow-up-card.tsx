@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { TextArea, TextInput } from '@/components/ui/field'
 import { Badge, TemperatureBadge, titleCase } from '@/components/ui/badge'
+import { localInputToIso } from '@/lib/time'
 import {
   cancelFollowUpAction,
   completeFollowUpAction,
@@ -163,7 +164,11 @@ export function FollowUpCard({ followUp }: { followUp: FollowUpCardData }) {
                   disabled={pending || !scheduledAt}
                   onClick={() =>
                     run(() =>
-                      rescheduleFollowUpAction({ followUpId: followUp.id, scheduledAt }),
+                      rescheduleFollowUpAction({
+                        followUpId: followUp.id,
+                        // Attach the browser's timezone; the UTC server cannot infer it.
+                        scheduledAt: localInputToIso(scheduledAt),
+                      }),
                     )
                   }
                 >

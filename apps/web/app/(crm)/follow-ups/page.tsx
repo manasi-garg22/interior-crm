@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/crm/page-header'
 import { FollowUpCard, type FollowUpCardData } from '@/components/crm/follow-up-card'
 import { EmptyState } from '@/components/ui/states'
 import { cn } from '@/lib/utils/cn'
+import { formatDateTime } from '@/lib/time'
 
 export const metadata: Metadata = { title: 'Follow-ups' }
 export const dynamic = 'force-dynamic'
@@ -108,13 +109,7 @@ function toCardData(row: ServiceRow): FollowUpCardData {
     id: row.id,
     type: row.type,
     status: row.status,
-    scheduledAt: row.scheduledAt.toLocaleString('en-IN', {
-      weekday: 'short',
-      day: 'numeric',
-      month: 'short',
-      hour: 'numeric',
-      minute: '2-digit',
-    }),
+    scheduledAt: formatDateTime(row.scheduledAt, { weekday: 'short' }),
     notes: row.notes,
     outcome: row.outcome,
     isOverdue: row.isOverdue,

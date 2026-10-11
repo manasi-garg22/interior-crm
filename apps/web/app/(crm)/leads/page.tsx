@@ -9,6 +9,7 @@ import { PageHeader } from '@/components/crm/page-header'
 import { LeadFilters } from '@/components/crm/lead-filters'
 import { StatusBadge, TemperatureBadge, titleCase } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
+import { formatDate } from '@/lib/time'
 
 export const metadata: Metadata = { title: 'Leads' }
 export const dynamic = 'force-dynamic'
@@ -159,7 +160,7 @@ function FollowUpCell({ date, overdue }: { date: Date | null; overdue: boolean }
 
   return (
     <span className={overdue ? 'font-medium text-danger' : 'text-ink-soft'}>
-      {date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+      {formatDate(date, { year: undefined })}
       {overdue ? ' · overdue' : ''}
     </span>
   )

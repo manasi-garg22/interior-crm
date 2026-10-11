@@ -4,6 +4,7 @@ import type { SessionUser } from '@/lib/server/session'
 import { leadScopeFor } from '@/lib/server/session'
 import { recordAudit } from '@/lib/server/audit'
 import { enqueueEvent } from '@/lib/events/outbox'
+import { formatDateTime } from '@/lib/time'
 import * as repository from './repository'
 
 /**
@@ -155,7 +156,7 @@ export async function scheduleFollowUp(
       leadId: lead.id,
       userId: user.id,
       type: ActivityType.FOLLOWUP_SCHEDULED,
-      title: `Follow-up scheduled for ${input.scheduledAt.toLocaleDateString('en-IN')}`,
+      title: `Follow-up scheduled for ${formatDateTime(input.scheduledAt)}`,
       description: input.notes ?? null,
     })
 

@@ -16,6 +16,8 @@ export type DomainEventType =
 
 /** Everything the customer entered, for the owner's new-lead alert. */
 export type LeadAlertDetails = {
+  /** ISO instant the enquiry was saved; optional for events queued before it existed. */
+  receivedAt?: string
   phone: string
   whatsappNumber: string | null
   email: string | null

@@ -1,4 +1,5 @@
 import { prisma, type Prisma } from '@crm/database'
+import { startOfBusinessDay, startOfNextBusinessDay } from '@/lib/time'
 
 /**
  * Follow-up data access.
@@ -61,8 +62,9 @@ export async function countByBucket(
   scope: Prisma.FollowUpWhereInput,
 ): Promise<{ overdue: number; today: number; upcoming: number; completed: number }> {
   const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfTomorrow = new Date(startOfToday.getTime() + 86_400_000)
+  // IST day boundaries; the server's own clock is UTC.
+  const startOfToday = startOfBusinessDay(now)
+  const startOfTomorrow = startOfNextBusinessDay(now)
 
   const [overdue, today, upcoming, completed] = await prisma.$transaction([
     prisma.followUp.count({

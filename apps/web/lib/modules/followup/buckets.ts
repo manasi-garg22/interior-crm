@@ -1,3 +1,5 @@
+import { startOfBusinessDay, startOfNextBusinessDay } from '@/lib/time'
+
 /**
  * Follow-up queue boundaries.
  *
@@ -16,13 +18,14 @@ export type BucketWindow = {
   to?: Date
 }
 
+/** IST midnight — the server runs in UTC, so "local" midnight would be 5:30am IST. */
 export function startOfDay(now: Date): Date {
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  return startOfBusinessDay(now)
 }
 
 export function bucketWindow(bucket: Bucket, now: Date = new Date()): BucketWindow {
   const todayStart = startOfDay(now)
-  const tomorrowStart = new Date(todayStart.getTime() + 86_400_000)
+  const tomorrowStart = startOfNextBusinessDay(now)
 
   switch (bucket) {
     case 'overdue':
@@ -49,7 +52,7 @@ export function bucketOf(
   if (followUp.status === 'COMPLETED') return 'completed'
 
   const todayStart = startOfDay(now)
-  const tomorrowStart = new Date(todayStart.getTime() + 86_400_000)
+  const tomorrowStart = startOfNextBusinessDay(now)
 
   if (followUp.scheduledAt < todayStart) return 'overdue'
   if (followUp.scheduledAt < tomorrowStart) return 'today'

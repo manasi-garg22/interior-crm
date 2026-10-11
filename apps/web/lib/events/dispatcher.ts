@@ -1,6 +1,7 @@
 import { getEnv } from '@crm/config'
 import { getEmailProvider } from '@crm/email'
 import { logger } from '@/lib/server/logger'
+import { formatDateTime } from '@/lib/time'
 import * as repository from './repository'
 import type { LeadAssignedPayload, LeadCreatedPayload } from './types'
 
@@ -238,7 +239,11 @@ function buildLeadAlertHtml(
     ? `<h3 style="margin:24px 0 4px;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:#6b675f">In their words</h3><p style="margin:0;font-size:15px;white-space:pre-wrap;color:#1f1d1a">${escapeHtml(d.notes)}</p>`
     : ''
 
-  const origin = [row('Source', humanize(d.source)), row('Campaign', d.utmCampaign)].join('')
+  const origin = [
+    row('Received', d.receivedAt ? `${formatDateTime(new Date(d.receivedAt), { year: 'numeric' })} IST` : null),
+    row('Source', humanize(d.source)),
+    row('Campaign', d.utmCampaign),
+  ].join('')
 
   const confirmation = buildConfirmationText(payload, d, companyName)
   const confirmButtons = [

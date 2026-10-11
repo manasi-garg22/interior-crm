@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react'
 import { Button } from '@/components/ui/button'
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field'
 import { titleCase } from '@/components/ui/badge'
+import { localInputToIso } from '@/lib/time'
 import {
   addNoteAction,
   assignLeadAction,
@@ -336,7 +337,8 @@ function FollowUpForm({
               leadId,
               assignedToId,
               type,
-              scheduledAt,
+              // Attach the browser's timezone; the UTC server cannot infer it.
+              scheduledAt: localInputToIso(scheduledAt),
               notes: notes || undefined,
             })
             if (result.ok) {
