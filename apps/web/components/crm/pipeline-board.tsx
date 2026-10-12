@@ -1,6 +1,6 @@
 'use client'
 
-import { useOptimistic, useState, useTransition } from 'react'
+import { useId, useOptimistic, useState, useTransition } from 'react'
 import Link from 'next/link'
 import {
   DndContext,
@@ -16,7 +16,10 @@ import {
 } from '@dnd-kit/core'
 import { CSS } from '@dnd-kit/utilities'
 import { TemperatureBadge, titleCase } from '@/components/ui/badge'
-import { SelectInput } from '@/components/ui/field'
+import { Button } from '@/components/ui/button'
+import { SelectInput, TextInput } from '@/components/ui/field'
+import { formatInr } from '@/lib/estimate/types'
+import { parseAmount } from '@/lib/view/amount'
 import { cn } from '@/lib/utils/cn'
 import { findCard, findColumnOf, moveCard } from '@/lib/view/pipeline-move'
 import { changeStatusAction } from '@/app/(crm)/leads/[id]/actions'
@@ -30,6 +33,7 @@ type Card = {
   score: number
   assigneeName: string | null
   budgetLabel: string | null
+  wonValue: number | null
 }
 
 type Column = { status: string; total: number; cards: Card[] }
@@ -45,10 +49,25 @@ type Column = { status: string; total: number; cards: Card[] }
  * Moves are optimistic — the card jumps immediately and rolls back if the
  * server rejects it, rather than making a salesperson wait on a round trip.
  */
-export function PipelineBoard({ columns }: { columns: Column[] }) {
+export function PipelineBoard({
+  columns,
+  filterQuery = '',
+}: {
+  columns: Column[]
+  /** Active filters, carried onto each column's "see all" link. */
+  filterQuery?: string
+}) {
   const [pending, startTransition] = useTransition()
+  // A stable id keeps dnd-kit's aria-describedby identical on server and client.
+  const dndId = useId()
   const [activeCard, setActiveCard] = useState<Card | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // A move to WON waits here until the deal amount is entered.
+  const [pendingWin, setPendingWin] = useState<{
+    cardId: string
+    fromStatus: string
+    customerName: string
+  } | null>(null)
 
   const [optimisticColumns, applyMove] = useOptimistic(
     columns,
@@ -63,14 +82,22 @@ export function PipelineBoard({ columns }: { columns: Column[] }) {
     useSensor(KeyboardSensor),
   )
 
-  function commit(cardId: string, toStatus: string, fromStatus: string): void {
+  function commit(cardId: string, toStatus: string, fromStatus: string, wonValue?: number): void {
     if (toStatus === fromStatus) return
+
+    if (toStatus === 'WON' && wonValue == null) {
+      const card = findCard(optimisticColumns, cardId)
+      if (card && card.wonValue == null) {
+        setPendingWin({ cardId, fromStatus, customerName: card.customerName })
+        return
+      }
+    }
 
     setError(null)
     startTransition(async () => {
       applyMove({ cardId, toStatus })
 
-      const result = await changeStatusAction({ leadId: cardId, status: toStatus })
+      const result = await changeStatusAction({ leadId: cardId, status: toStatus, wonValue })
       if (!result.ok) {
         // The optimistic state unwinds on its own when the transition ends
         // without a matching server render.
@@ -107,6 +134,7 @@ export function PipelineBoard({ columns }: { columns: Column[] }) {
       ) : null}
 
       <DndContext
+        id={dndId}
         sensors={sensors}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -119,14 +147,87 @@ export function PipelineBoard({ columns }: { columns: Column[] }) {
               column={column}
               allStatuses={optimisticColumns.map((c) => c.status)}
               onMove={commit}
+              filterQuery={filterQuery}
             />
           ))}
         </div>
 
-        <DragOverlay>
-          {activeCard ? <CardBody card={activeCard} dragging /> : null}
-        </DragOverlay>
+        <DragOverlay>{activeCard ? <CardBody card={activeCard} dragging /> : null}</DragOverlay>
       </DndContext>
+
+      {pendingWin ? (
+        <WonAmountDialog
+          customerName={pendingWin.customerName}
+          onCancel={() => setPendingWin(null)}
+          onConfirm={(amount) => {
+            const move = pendingWin
+            setPendingWin(null)
+            commit(move.cardId, 'WON', move.fromStatus, amount)
+          }}
+        />
+      ) : null}
+    </div>
+  )
+}
+
+function WonAmountDialog({
+  customerName,
+  onCancel,
+  onConfirm,
+}: {
+  customerName: string
+  onCancel: () => void
+  onConfirm: (amount: number) => void
+}) {
+  const [amount, setAmount] = useState('')
+  const parsed = parseAmount(amount)
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
+      onKeyDown={(event) => {
+        if (event.key === 'Escape') onCancel()
+      }}
+    >
+      <form
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="won-dialog-title"
+        className="w-full max-w-sm border border-line bg-surface p-5 shadow-xl"
+        onSubmit={(event) => {
+          event.preventDefault()
+          if (parsed != null) onConfirm(parsed)
+        }}
+      >
+        <h2 id="won-dialog-title" className="font-medium">
+          Mark {customerName} as won
+        </h2>
+        <label htmlFor="won-dialog-amount" className="mt-4 block text-sm font-medium">
+          Final deal amount (₹)
+        </label>
+        <TextInput
+          id="won-dialog-amount"
+          autoFocus
+          inputMode="decimal"
+          autoComplete="off"
+          value={amount}
+          onChange={(event) => setAmount(event.target.value)}
+          placeholder="12,50,000"
+          className="mt-2"
+        />
+        <p className="mt-2 text-sm text-ink-muted">
+          {parsed != null ? `${formatInr(parsed)} · ` : ''}Locked once saved, only an admin can
+          change it.
+        </p>
+        <div className="mt-5 flex justify-end gap-2">
+          <Button variant="ghost" onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button type="submit" disabled={parsed == null}>
+            Mark won
+          </Button>
+        </div>
+      </form>
     </div>
   )
 }
@@ -135,10 +236,12 @@ function PipelineColumn({
   column,
   allStatuses,
   onMove,
+  filterQuery,
 }: {
   column: Column
   allStatuses: string[]
   onMove: (cardId: string, toStatus: string, fromStatus: string) => void
+  filterQuery: string
 }) {
   const { setNodeRef, isOver } = useDroppable({ id: column.status })
 
@@ -153,7 +256,7 @@ function PipelineColumn({
     >
       <header className="flex items-baseline justify-between border-b border-line px-3 py-3">
         <h2 className="text-sm font-medium">{titleCase(column.status)}</h2>
-        <span className="text-xs tabular-nums text-ink-muted">{column.total}</span>
+        <span className="text-xs text-ink-muted tabular-nums">{column.total}</span>
       </header>
 
       <div className="flex-1 space-y-2 p-2">
@@ -174,7 +277,10 @@ function PipelineColumn({
         {column.total > column.cards.length ? (
           <p className="px-2 py-2 text-center text-xs text-ink-muted">
             Showing {column.cards.length} of {column.total} —{' '}
-            <Link href={`/leads?status=${column.status}`} className="underline underline-offset-2">
+            <Link
+              href={`/leads?status=${column.status}${filterQuery ? `&${filterQuery}` : ''}`}
+              className="underline underline-offset-2"
+            >
               see all
             </Link>
           </p>
@@ -249,7 +355,7 @@ function CardBody({
         {/* Only the grip drags, so the title stays a working link. */}
         <span
           {...handleProps}
-          className="cursor-grab select-none text-ink-muted active:cursor-grabbing"
+          className="cursor-grab text-ink-muted select-none active:cursor-grabbing"
           aria-hidden={handleProps ? undefined : true}
         >
           ⠿
@@ -266,7 +372,11 @@ function CardBody({
       <p className="font-mono text-[0.6875rem] text-ink-muted">{card.leadNumber}</p>
 
       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink-muted">
-        {card.budgetLabel ? <span>{card.budgetLabel}</span> : null}
+        {card.wonValue != null ? (
+          <span className="font-medium text-success">{formatInr(card.wonValue)}</span>
+        ) : card.budgetLabel ? (
+          <span>{card.budgetLabel}</span>
+        ) : null}
         {card.city ? <span>· {card.city}</span> : null}
         <span>· {card.score}</span>
       </div>

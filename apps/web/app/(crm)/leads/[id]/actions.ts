@@ -6,6 +6,7 @@ import {
   assignLeadSchema,
   changeLeadStatusSchema,
   scheduleFollowUpSchema,
+  updateWonValueSchema,
 } from '@crm/validation'
 import { withAction } from '@/lib/server/action'
 import * as mutations from '@/lib/modules/lead/mutations'
@@ -23,6 +24,19 @@ export const changeStatusAction = withAction({
   schema: changeLeadStatusSchema,
   handler: async (input, user) => {
     await mutations.changeStatus(input, user)
+    revalidatePath(`/leads/${input.leadId}`)
+    revalidatePath('/leads')
+    revalidatePath('/pipeline')
+    revalidatePath('/dashboard')
+    return { leadId: input.leadId }
+  },
+})
+
+export const updateWonValueAction = withAction({
+  permission: 'lead:won_value:edit',
+  schema: updateWonValueSchema,
+  handler: async (input, user) => {
+    await mutations.updateWonValue(input, user)
     revalidatePath(`/leads/${input.leadId}`)
     revalidatePath('/leads')
     revalidatePath('/dashboard')

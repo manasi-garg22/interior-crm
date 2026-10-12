@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field'
 import { titleCase } from '@/components/ui/badge'
 import { localInputToIso } from '@/lib/time'
+import { formatInr } from '@/lib/estimate/types'
+import { parseAmount } from '@/lib/view/amount'
 import {
   addNoteAction,
   assignLeadAction,
   changeStatusAction,
   scheduleFollowUpAction,
+  updateWonValueAction,
 } from '@/app/(crm)/leads/[id]/actions'
 
 const STATUSES = [
@@ -33,13 +36,21 @@ export function LeadActionPanel({
   currentStatus,
   currentAssigneeId,
   assignees,
+  wonValue,
   permissions,
 }: {
   leadId: string
   currentStatus: string
   currentAssigneeId: string | null
   assignees: Assignee[]
-  permissions: { canAssign: boolean; canUpdate: boolean; canCreateFollowUp: boolean }
+  /** The locked deal value, if one has been set. */
+  wonValue: number | null
+  permissions: {
+    canAssign: boolean
+    canUpdate: boolean
+    canCreateFollowUp: boolean
+    canEditWonValue: boolean
+  }
 }) {
   const [pending, startTransition] = useTransition()
   const [message, setMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null)
@@ -48,7 +59,9 @@ export function LeadActionPanel({
     startTransition(async () => {
       const result = await work()
       setMessage(
-        result.ok ? { tone: 'ok', text: success } : { tone: 'error', text: result.error ?? 'Failed' },
+        result.ok
+          ? { tone: 'ok', text: success }
+          : { tone: 'error', text: result.error ?? 'Failed' },
       )
     })
   }
@@ -68,10 +81,15 @@ export function LeadActionPanel({
         </div>
       ) : null}
 
+      {permissions.canEditWonValue && (currentStatus === 'WON' || wonValue != null) ? (
+        <WonValueForm leadId={leadId} wonValue={wonValue} pending={pending} onSubmit={run} />
+      ) : null}
+
       {permissions.canUpdate ? (
         <StatusForm
           leadId={leadId}
           currentStatus={currentStatus}
+          wonValue={wonValue}
           pending={pending}
           onSubmit={run}
         />
@@ -102,10 +120,7 @@ export function LeadActionPanel({
   )
 }
 
-type Runner = (
-  work: () => Promise<{ ok: boolean; error?: string }>,
-  success: string,
-) => void
+type Runner = (work: () => Promise<{ ok: boolean; error?: string }>, success: string) => void
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -119,17 +134,23 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function StatusForm({
   leadId,
   currentStatus,
+  wonValue,
   pending,
   onSubmit,
 }: {
   leadId: string
   currentStatus: string
+  wonValue: number | null
   pending: boolean
   onSubmit: Runner
 }) {
   const [status, setStatus] = useState(currentStatus)
   const [note, setNote] = useState('')
   const [lostReason, setLostReason] = useState('')
+  const [amount, setAmount] = useState('')
+
+  const needsAmount = status === 'WON' && wonValue == null
+  const parsedAmount = parseAmount(amount)
 
   return (
     <Panel title="Change status">
@@ -158,6 +179,34 @@ function StatusForm({
         </Field>
       ) : null}
 
+      {needsAmount ? (
+        <Field
+          label="Final deal amount (₹)"
+          required
+          error={amount && parsedAmount == null ? 'Enter an amount like 12,50,000' : undefined}
+          hint={
+            parsedAmount != null
+              ? `${formatInr(parsedAmount)} · locked once saved, only an admin can change it`
+              : 'Locked once saved, only an admin can change it'
+          }
+        >
+          {(field) => (
+            <TextInput
+              {...field}
+              inputMode="decimal"
+              autoComplete="off"
+              value={amount}
+              onChange={(event) => setAmount(event.target.value)}
+              placeholder="12,50,000"
+            />
+          )}
+        </Field>
+      ) : status === 'WON' && wonValue != null ? (
+        <p className="text-sm text-ink-muted">
+          Deal value {formatInr(wonValue)} is already locked and will be kept.
+        </p>
+      ) : null}
+
       <TextArea
         aria-label="Note"
         value={note}
@@ -167,22 +216,120 @@ function StatusForm({
       />
 
       <Button
-        disabled={pending || status === currentStatus}
-        onClick={() =>
-          onSubmit(
-            () =>
-              changeStatusAction({
-                leadId,
-                status,
-                note: note || undefined,
-                lostReason: lostReason || undefined,
-              }),
-            'Status updated.',
-          )
-        }
+        disabled={pending || status === currentStatus || (needsAmount && parsedAmount == null)}
+        onClick={() => {
+          if (
+            needsAmount &&
+            parsedAmount != null &&
+            !window.confirm(
+              `Mark as won for ${formatInr(parsedAmount)}? The amount will be locked.`,
+            )
+          ) {
+            return
+          }
+          onSubmit(async () => {
+            const result = await changeStatusAction({
+              leadId,
+              status,
+              note: note || undefined,
+              lostReason: lostReason || undefined,
+              wonValue: needsAmount && parsedAmount != null ? parsedAmount : undefined,
+            })
+            if (result.ok) setAmount('')
+            return result
+          }, 'Status updated.')
+        }}
       >
         Update status
       </Button>
+    </Panel>
+  )
+}
+
+/** Admin-only: change a locked deal value, with a reason for the audit trail. */
+function WonValueForm({
+  leadId,
+  wonValue,
+  pending,
+  onSubmit,
+}: {
+  leadId: string
+  wonValue: number | null
+  pending: boolean
+  onSubmit: Runner
+}) {
+  const [editing, setEditing] = useState(wonValue == null)
+  const [amount, setAmount] = useState(wonValue != null ? String(wonValue) : '')
+  const [reason, setReason] = useState('')
+  const parsedAmount = parseAmount(amount)
+
+  if (!editing) {
+    return (
+      <Panel title="Deal value">
+        <p className="text-sm text-ink-soft">
+          {wonValue != null ? `${formatInr(wonValue)} · locked` : 'Not set'}
+        </p>
+        <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
+          Change amount
+        </Button>
+      </Panel>
+    )
+  }
+
+  return (
+    <Panel title={wonValue == null ? 'Set deal value' : 'Change deal value'}>
+      <Field
+        label="Amount (₹)"
+        required
+        error={amount && parsedAmount == null ? 'Enter an amount like 12,50,000' : undefined}
+        hint={parsedAmount != null ? formatInr(parsedAmount) : undefined}
+      >
+        {(field) => (
+          <TextInput
+            {...field}
+            inputMode="decimal"
+            autoComplete="off"
+            value={amount}
+            onChange={(event) => setAmount(event.target.value)}
+          />
+        )}
+      </Field>
+      <Field label="Reason" required>
+        {(field) => (
+          <TextInput
+            {...field}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            placeholder="Scope reduced after final measurement"
+          />
+        )}
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          disabled={pending || parsedAmount == null || reason.trim().length < 3}
+          onClick={() =>
+            onSubmit(async () => {
+              const result = await updateWonValueAction({
+                leadId,
+                wonValue: parsedAmount ?? 0,
+                reason,
+              })
+              if (result.ok) {
+                setReason('')
+                setEditing(false)
+              }
+              return result
+            }, 'Deal value updated.')
+          }
+        >
+          Save amount
+        </Button>
+        {wonValue != null ? (
+          <Button variant="ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+        ) : null}
+      </div>
     </Panel>
   )
 }

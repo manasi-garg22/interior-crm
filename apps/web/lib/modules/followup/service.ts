@@ -36,14 +36,86 @@ function bucketFilter(bucket: Bucket): Prisma.FollowUpWhereInput {
   }
 }
 
-export async function listBucket(bucket: Bucket, user: SessionUser) {
-  const where: Prisma.FollowUpWhereInput = {
-    AND: [scopeFor(user), bucketFilter(bucket)],
+export const FOLLOW_UP_PAGE_SIZE = 25
+
+const FOLLOW_UP_TYPES = ['CALL', 'WHATSAPP', 'EMAIL', 'MEETING', 'SITE_VISIT'] as const
+const TEMPERATURES = ['HOT', 'WARM', 'COLD'] as const
+
+export type FollowUpFilters = {
+  q?: string | undefined
+  type?: (typeof FOLLOW_UP_TYPES)[number] | undefined
+  assignedToId?: string | undefined
+  temperature?: (typeof TEMPERATURES)[number] | undefined
+}
+
+/** URL values are untrusted; anything unrecognised is dropped. */
+export function parseFollowUpFilters(
+  params: Record<string, string | string[] | undefined>,
+): FollowUpFilters {
+  const get = (key: string): string | undefined => {
+    const value = params[key]
+    const first = Array.isArray(value) ? value[0] : value
+    return first?.trim() ? first.trim().slice(0, 120) : undefined
+  }
+  const oneOf = <T extends string>(
+    value: string | undefined,
+    allowed: readonly T[],
+  ): T | undefined => (allowed.includes(value as T) ? (value as T) : undefined)
+
+  const assignedToId = get('assignedToId')
+
+  return {
+    q: get('q'),
+    type: oneOf(get('type'), FOLLOW_UP_TYPES),
+    temperature: oneOf(get('temperature'), TEMPERATURES),
+    assignedToId:
+      assignedToId && /^[a-z0-9]{20,40}$/i.test(assignedToId) ? assignedToId : undefined,
+  }
+}
+
+function filterWhere(filters: FollowUpFilters, user: SessionUser): Prisma.FollowUpWhereInput {
+  const conditions: Prisma.FollowUpWhereInput[] = [scopeFor(user)]
+
+  if (filters.q) {
+    const term = filters.q
+    conditions.push({
+      lead: {
+        OR: [
+          { leadNumber: { contains: term, mode: 'insensitive' } },
+          { customer: { fullName: { contains: term, mode: 'insensitive' } } },
+          { customer: { phone: { contains: term } } },
+        ],
+      },
+    })
+  }
+  if (filters.type) conditions.push({ type: filters.type })
+  if (filters.temperature) conditions.push({ lead: { temperature: filters.temperature } })
+  // A scoped user is already limited to their own; the owner filter is for managers.
+  if (filters.assignedToId && followUpScopeFor(user) === 'all') {
+    conditions.push({ assignedToId: filters.assignedToId })
   }
 
-  const [rows, counts] = await Promise.all([
-    repository.listFollowUps(where),
-    repository.countByBucket(scopeFor(user)),
+  return { AND: conditions }
+}
+
+export async function listBucket(
+  bucket: Bucket,
+  user: SessionUser,
+  filters: FollowUpFilters = {},
+  page = 1,
+) {
+  const base = filterWhere(filters, user)
+  const where: Prisma.FollowUpWhereInput = { AND: [base, bucketFilter(bucket)] }
+
+  const [rows, total, counts] = await Promise.all([
+    repository.listFollowUps(where, {
+      skip: (page - 1) * FOLLOW_UP_PAGE_SIZE,
+      take: FOLLOW_UP_PAGE_SIZE,
+      // Open queues: oldest first, it needs attention first. Completed: newest first.
+      orderBy: bucket === 'completed' ? { scheduledAt: 'desc' } : { scheduledAt: 'asc' },
+    }),
+    repository.countFollowUps(where),
+    repository.countByBucket(base),
   ])
 
   const now = Date.now()
@@ -56,6 +128,10 @@ export async function listBucket(bucket: Bucket, user: SessionUser) {
       isOverdue: row.status === 'PENDING' && row.scheduledAt.getTime() < now,
     })),
     counts,
+    total,
+    page,
+    pageSize: FOLLOW_UP_PAGE_SIZE,
+    pageCount: Math.max(1, Math.ceil(total / FOLLOW_UP_PAGE_SIZE)),
   }
 }
 

@@ -1,5 +1,5 @@
 import type { Prisma } from '@crm/database'
-import type { LeadFilters } from '@crm/validation'
+import { leadFiltersSchema, type LeadFilters } from '@crm/validation'
 import type { SessionUser } from '@/lib/server/session'
 import { leadScopeFor } from '@/lib/server/session'
 import { businessDayEndFromCalendarDate, businessDayStartFromCalendarDate } from '@/lib/time'
@@ -59,7 +59,57 @@ export async function listLeadsForUser(
   }
 }
 
-function buildWhere(filters: LeadFilters, user: SessionUser): Prisma.LeadWhereInput {
+/**
+ * Query parameters are untrusted. A field that fails the schema is dropped
+ * on its own and the rest are kept, so one bad value (a mistyped date) does
+ * not silently reset every other filter.
+ */
+export function parseLeadFilters(
+  searchParams: Record<string, string | string[] | undefined>,
+): LeadFilters {
+  const single = (key: string): string | undefined => {
+    const value = searchParams[key]
+    const first = Array.isArray(value) ? value[0] : value
+    return typeof first === 'string' && first !== '' ? first : undefined
+  }
+  const asList = (key: string): string[] | undefined => {
+    const value = single(key)
+    return value ? value.split(',').filter(Boolean) : undefined
+  }
+
+  // `sort=score:desc` is the UI's combined form of sortBy + sortDir.
+  const [sortBy, sortDir] = (single('sort') ?? '').split(':')
+
+  const raw: Record<string, unknown> = {
+    q: single('q'),
+    status: asList('status'),
+    temperature: asList('temperature'),
+    source: asList('source'),
+    assignedToId: single('assignedToId'),
+    city: single('city'),
+    budgetKey: single('budgetKey'),
+    campaignId: single('campaignId'),
+    createdFrom: single('createdFrom'),
+    createdTo: single('createdTo'),
+    overdueFollowUp: single('overdue'),
+    sortBy: sortBy || single('sortBy'),
+    sortDir: sortDir || single('sortDir'),
+    page: single('page'),
+    pageSize: single('pageSize'),
+  }
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const parsed = leadFiltersSchema.safeParse(raw)
+    if (parsed.success) return parsed.data
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0]
+      if (typeof key === 'string') delete raw[key]
+    }
+  }
+  return leadFiltersSchema.parse({})
+}
+
+export function buildWhere(filters: LeadFilters, user: SessionUser): Prisma.LeadWhereInput {
   const conditions: Prisma.LeadWhereInput[] = [{ deletedAt: null }]
 
   // Row-level scope. A sales executive only ever sees their own leads, and
@@ -93,14 +143,24 @@ function buildWhere(filters: LeadFilters, user: SessionUser): Prisma.LeadWhereIn
     )
   }
 
-  if (filters.city) conditions.push({ customer: { city: { equals: filters.city, mode: 'insensitive' } } })
+  if (filters.city) {
+    // Partial match on either the customer's city or the project's city.
+    conditions.push({
+      OR: [
+        { customer: { city: { contains: filters.city, mode: 'insensitive' } } },
+        { requirement: { city: { contains: filters.city, mode: 'insensitive' } } },
+      ],
+    })
+  }
   if (filters.budgetKey) conditions.push({ requirement: { budgetKey: filters.budgetKey } })
 
   if (filters.createdFrom || filters.createdTo) {
     conditions.push({
       createdAt: {
         // The filter's dates are IST calendar days.
-        ...(filters.createdFrom ? { gte: businessDayStartFromCalendarDate(filters.createdFrom) } : {}),
+        ...(filters.createdFrom
+          ? { gte: businessDayStartFromCalendarDate(filters.createdFrom) }
+          : {}),
         ...(filters.createdTo ? { lte: businessDayEndFromCalendarDate(filters.createdTo) } : {}),
       },
     })

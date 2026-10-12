@@ -1,5 +1,7 @@
 import { LeadStatus, type Prisma } from '@crm/database'
-import { leadScopeFor, type SessionUser } from '@/lib/server/session'
+import type { LeadFilters } from '@crm/validation'
+import type { SessionUser } from '@/lib/server/session'
+import { buildWhere } from './list'
 import * as repository from './repository'
 
 /**
@@ -35,6 +37,8 @@ export type PipelineCard = {
   score: number
   assigneeName: string | null
   budgetLabel: string | null
+  /** Locked deal value, once the lead has been won. */
+  wonValue: number | null
 }
 
 export type PipelineColumn = {
@@ -43,13 +47,20 @@ export type PipelineColumn = {
   cards: PipelineCard[]
 }
 
-export async function getPipeline(user: SessionUser): Promise<PipelineColumn[]> {
-  const scope: Prisma.LeadWhereInput =
-    leadScopeFor(user) === 'all' ? {} : { assignedToId: user.id }
+/**
+ * `filters` are the same as the leads list (search, temperature, owner,
+ * city, dates…). Its status filter is ignored: the columns are the statuses.
+ * buildWhere also applies the row-level scope for sales executives.
+ */
+export async function getPipeline(
+  user: SessionUser,
+  filters: LeadFilters,
+): Promise<PipelineColumn[]> {
+  const base = buildWhere({ ...filters, status: undefined }, user)
 
   const columns = await Promise.all(
     PIPELINE_COLUMNS.map(async (status) => {
-      const where: Prisma.LeadWhereInput = { AND: [{ deletedAt: null, status }, scope] }
+      const where: Prisma.LeadWhereInput = { AND: [base, { status }] }
 
       const [total, rows] = await Promise.all([
         repository.countLeads(where),
@@ -79,6 +90,7 @@ function toCard(row: Row): PipelineCard {
     score: row.score,
     assigneeName: row.assignedTo?.name ?? null,
     budgetLabel: formatBudget(row.requirement?.budgetMin, row.requirement?.budgetMax),
+    wonValue: row.wonValue != null ? Number(row.wonValue) : null,
   }
 }
 

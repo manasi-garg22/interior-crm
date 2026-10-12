@@ -1,4 +1,5 @@
 import { ActivityType, LeadStatus } from '@crm/database'
+import { formatInr } from '@/lib/estimate/types'
 import { NotFoundError, ValidationError } from '@/lib/server/errors'
 import type { SessionUser } from '@/lib/server/session'
 import { leadScopeFor } from '@/lib/server/session'
@@ -23,7 +24,13 @@ async function assertVisible(leadId: string, user: SessionUser) {
 }
 
 export async function changeStatus(
-  input: { leadId: string; status: LeadStatus; note?: string; lostReason?: string },
+  input: {
+    leadId: string
+    status: LeadStatus
+    note?: string
+    lostReason?: string
+    wonValue?: number
+  },
   user: SessionUser,
 ): Promise<void> {
   const lead = await assertVisible(input.leadId, user)
@@ -37,9 +44,23 @@ export async function changeStatus(
     })
   }
 
+  // The won value is locked once set. A lead re-won after being reopened
+  // keeps its original amount; only an admin can change it, separately.
+  const lockedValue = lead.wonValue != null ? Number(lead.wonValue) : null
+  const settingWonValue = input.status === LeadStatus.WON && lockedValue == null
+  if (settingWonValue && input.wonValue == null) {
+    throw new ValidationError('Enter the final deal amount to mark this lead won', {
+      wonValue: ['Required when marking a lead won'],
+    })
+  }
+  const wonValue = settingWonValue ? input.wonValue! : null
+
   await repository.runInTransaction(async (tx) => {
     await repository.updateLeadStatus(tx, lead.id, input.status, {
       lostReason: input.status === LeadStatus.LOST ? (input.lostReason ?? null) : null,
+      ...(wonValue != null
+        ? { wonValue, wonValueSetAt: new Date(), wonValueSetById: user.id }
+        : {}),
     })
 
     // Every status change leaves a trace — this is the audit trail the
@@ -48,9 +69,16 @@ export async function changeStatus(
       leadId: lead.id,
       userId: user.id,
       type: ActivityType.STATUS_CHANGED,
-      title: `Status changed to ${input.status.replace(/_/g, ' ').toLowerCase()}`,
+      title:
+        input.status === LeadStatus.WON
+          ? `Won · ${formatInr(wonValue ?? lockedValue ?? 0)}${wonValue != null ? ' (locked)' : ''}`
+          : `Status changed to ${input.status.replace(/_/g, ' ').toLowerCase()}`,
       description: input.note ?? input.lostReason ?? null,
-      metadata: { from: lead.status, to: input.status },
+      metadata: {
+        from: lead.status,
+        to: input.status,
+        ...(wonValue != null ? { wonValue } : {}),
+      },
     })
 
     await enqueueEvent(tx, 'LEAD_STATUS_CHANGED', {
@@ -69,7 +97,55 @@ export async function changeStatus(
     entity: 'Lead',
     entityId: lead.id,
     before: { status: lead.status },
-    after: { status: input.status },
+    after: { status: input.status, ...(wonValue != null ? { wonValue } : {}) },
+  })
+}
+
+/**
+ * Corrects a locked won value. The action layer restricts this to
+ * `lead:won_value:edit` (admins); the reason is required and both the
+ * timeline and the audit log keep the old and new amounts.
+ */
+export async function updateWonValue(
+  input: { leadId: string; wonValue: number; reason: string },
+  user: SessionUser,
+): Promise<void> {
+  const lead = await assertVisible(input.leadId, user)
+
+  const previous = lead.wonValue != null ? Number(lead.wonValue) : null
+  if (lead.status !== LeadStatus.WON && previous == null) {
+    throw new ValidationError('Only a won lead has a deal value.')
+  }
+  if (previous === input.wonValue) {
+    throw new ValidationError('That is already the deal value.')
+  }
+
+  await repository.runInTransaction(async (tx) => {
+    await tx.lead.update({
+      where: { id: lead.id },
+      data: { wonValue: input.wonValue, wonValueSetAt: new Date(), wonValueSetById: user.id },
+    })
+
+    await repository.insertActivity(tx, {
+      leadId: lead.id,
+      userId: user.id,
+      type: ActivityType.STATUS_CHANGED,
+      title:
+        previous == null
+          ? `Deal value set to ${formatInr(input.wonValue)}`
+          : `Deal value changed from ${formatInr(previous)} to ${formatInr(input.wonValue)}`,
+      description: input.reason,
+      metadata: { wonValueFrom: previous, wonValueTo: input.wonValue },
+    })
+  })
+
+  await recordAudit({
+    actorId: user.id,
+    action: 'lead.won_value_changed',
+    entity: 'Lead',
+    entityId: lead.id,
+    before: { wonValue: previous },
+    after: { wonValue: input.wonValue, reason: input.reason },
   })
 }
 

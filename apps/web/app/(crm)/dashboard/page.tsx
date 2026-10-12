@@ -6,6 +6,7 @@ import { PageHeader } from '@/components/crm/page-header'
 import { BreakdownCard, StatCard } from '@/components/crm/stat-card'
 import { StatusBadge, TemperatureBadge, titleCase } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
+import { formatInrCompact } from '@/lib/view/amount'
 
 export const metadata: Metadata = { title: 'Dashboard' }
 export const dynamic = 'force-dynamic'
@@ -54,6 +55,19 @@ export default async function DashboardPage() {
         <StatCard label="Site visits" value={data.siteVisits} href="/leads?status=SITE_VISIT" />
         <StatCard label="Won" value={data.wonProjects} href="/leads?status=WON" />
         <StatCard label="Conversion" value={data.conversionRate} suffix="%" />
+      </div>
+
+      <div className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="Won value · this month"
+          value={formatInrCompact(data.wonValueThisMonth)}
+          href="/leads?status=WON"
+        />
+        <StatCard
+          label="Won value · all time"
+          value={formatInrCompact(data.wonValueTotal)}
+          href="/leads?status=WON"
+        />
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">

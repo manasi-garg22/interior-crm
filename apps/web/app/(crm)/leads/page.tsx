@@ -1,29 +1,32 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { can, type Role } from '@crm/config'
-import { leadFiltersSchema } from '@crm/validation'
 import { requireUser } from '@/lib/server/session'
-import { listLeadsForUser } from '@/lib/modules/lead/list'
+import { listLeadsForUser, parseLeadFilters } from '@/lib/modules/lead/list'
 import { listAssignableUsers } from '@/lib/modules/user/repository'
+import { getPublicFormOptions } from '@/lib/modules/options/service'
 import { PageHeader } from '@/components/crm/page-header'
-import { LeadFilters } from '@/components/crm/lead-filters'
+import { ListFilters } from '@/components/crm/list-filters'
+import { Pagination, type SearchParams } from '@/components/ui/pagination'
+import { leadFilterFields } from '@/lib/view/lead-filter-fields'
 import { StatusBadge, TemperatureBadge, titleCase } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/states'
 import { formatDate } from '@/lib/time'
+import { formatInrCompact } from '@/lib/view/amount'
 
 export const metadata: Metadata = { title: 'Leads' }
 export const dynamic = 'force-dynamic'
-
-type SearchParams = Record<string, string | string[] | undefined>
 
 export default async function LeadsPage(props: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser('/leads')
   const searchParams = await props.searchParams
 
-  const filters = parseFilters(searchParams)
-  const [result, assignees] = await Promise.all([
+  const filters = parseLeadFilters(searchParams)
+  const canFilterByAssignee = can(user.role as Role, 'lead:read:all')
+  const [result, assignees, options] = await Promise.all([
     listLeadsForUser(filters, user),
-    can(user.role as Role, 'lead:assign') ? listAssignableUsers() : Promise.resolve([]),
+    canFilterByAssignee ? listAssignableUsers() : Promise.resolve([]),
+    getPublicFormOptions(),
   ])
 
   return (
@@ -33,9 +36,14 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
         description={`${result.total} ${result.total === 1 ? 'lead' : 'leads'}`}
       />
 
-      <LeadFilters
-        assignees={assignees.map((person) => ({ id: person.id, name: person.name }))}
-        canFilterByAssignee={can(user.role as Role, 'lead:read:all')}
+      <ListFilters
+        basePath="/leads"
+        searchPlaceholder="Search name, phone, email or lead number"
+        fields={leadFilterFields({
+          assignees: assignees.map((person) => ({ id: person.id, name: person.name })),
+          canFilterByAssignee,
+          budgets: options.budgetRanges,
+        })}
       />
 
       {result.rows.length === 0 ? (
@@ -54,7 +62,7 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
                   <Th>Customer</Th>
                   <Th>City</Th>
                   <Th>Type</Th>
-                  <Th>Budget</Th>
+                  <Th>Budget / deal</Th>
                   <Th>Source</Th>
                   <Th>Temp.</Th>
                   <Th>Status</Th>
@@ -84,7 +92,13 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
                       {lead.requirement ? titleCase(lead.requirement.propertyType) : '—'}
                     </td>
                     <td className="px-4 py-3 text-ink-soft">
-                      {formatBudget(lead.requirement?.budgetMin, lead.requirement?.budgetMax)}
+                      {lead.wonValue != null ? (
+                        <span className="font-medium text-success" title="Locked deal value">
+                          {formatInrCompact(Number(lead.wonValue))}
+                        </span>
+                      ) : (
+                        formatBudget(lead.requirement?.budgetMin, lead.requirement?.budgetMax)
+                      )}
                     </td>
                     <td className="px-4 py-3 text-ink-soft">{titleCase(lead.source)}</td>
                     <td className="px-4 py-3">
@@ -94,9 +108,7 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
                       <StatusBadge status={lead.status} />
                     </td>
                     <td className="px-4 py-3 text-ink-soft">
-                      {lead.assignedTo?.name ?? (
-                        <span className="text-ink-muted">Unassigned</span>
-                      )}
+                      {lead.assignedTo?.name ?? <span className="text-ink-muted">Unassigned</span>}
                     </td>
                     <td className="px-4 py-3">
                       <FollowUpCell date={lead.nextFollowUpAt} overdue={lead.followUpOverdue} />
@@ -126,7 +138,9 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-ink-muted">
                     <StatusBadge status={lead.status} />
                     {lead.customer.city ? <span>{lead.customer.city}</span> : null}
-                    {lead.requirement ? <span>{titleCase(lead.requirement.propertyType)}</span> : null}
+                    {lead.requirement ? (
+                      <span>{titleCase(lead.requirement.propertyType)}</span>
+                    ) : null}
                   </div>
 
                   <div className="mt-3 flex items-center justify-between text-xs text-ink-muted">
@@ -139,8 +153,11 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
           </ul>
 
           <Pagination
+            basePath="/leads"
             page={result.page}
             pageCount={result.pageCount}
+            total={result.total}
+            pageSize={result.pageSize}
             searchParams={searchParams}
           />
         </>
@@ -150,7 +167,7 @@ export default async function LeadsPage(props: { searchParams: Promise<SearchPar
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="whitespace-nowrap px-4 py-3 font-medium text-ink-soft">{children}</th>
+  return <th className="px-4 py-3 font-medium whitespace-nowrap text-ink-soft">{children}</th>
 }
 
 // `overdue` is computed in the service, not here — reading the clock during
@@ -164,86 +181,6 @@ function FollowUpCell({ date, overdue }: { date: Date | null; overdue: boolean }
       {overdue ? ' · overdue' : ''}
     </span>
   )
-}
-
-function Pagination({
-  page,
-  pageCount,
-  searchParams,
-}: {
-  page: number
-  pageCount: number
-  searchParams: SearchParams
-}) {
-  if (pageCount <= 1) return null
-
-  const linkFor = (target: number): string => {
-    const params = new URLSearchParams()
-    for (const [key, value] of Object.entries(searchParams)) {
-      if (typeof value === 'string' && key !== 'page') params.set(key, value)
-    }
-    params.set('page', String(target))
-    return `/leads?${params.toString()}`
-  }
-
-  return (
-    <nav className="mt-6 flex items-center justify-between" aria-label="Pagination">
-      {page > 1 ? (
-        <Link href={linkFor(page - 1)} className="text-sm underline-offset-4 hover:underline">
-          ← Previous
-        </Link>
-      ) : (
-        <span />
-      )}
-
-      <span className="text-sm text-ink-muted">
-        Page {page} of {pageCount}
-      </span>
-
-      {page < pageCount ? (
-        <Link href={linkFor(page + 1)} className="text-sm underline-offset-4 hover:underline">
-          Next →
-        </Link>
-      ) : (
-        <span />
-      )}
-    </nav>
-  )
-}
-
-/**
- * Query parameters are untrusted. Anything that fails the schema falls back
- * to the documented default rather than reaching the database.
- */
-function parseFilters(searchParams: SearchParams) {
-  const single = (key: string): string | undefined => {
-    const value = searchParams[key]
-    return typeof value === 'string' && value !== '' ? value : undefined
-  }
-  const asList = (key: string): string[] | undefined => {
-    const value = single(key)
-    return value ? value.split(',') : undefined
-  }
-
-  const parsed = leadFiltersSchema.safeParse({
-    q: single('q'),
-    status: asList('status'),
-    temperature: asList('temperature'),
-    source: asList('source'),
-    assignedToId: single('assignedToId'),
-    city: single('city'),
-    budgetKey: single('budgetKey'),
-    campaignId: single('campaignId'),
-    createdFrom: single('createdFrom'),
-    createdTo: single('createdTo'),
-    overdueFollowUp: single('overdue'),
-    sortBy: single('sortBy'),
-    sortDir: single('sortDir'),
-    page: single('page'),
-    pageSize: single('pageSize'),
-  })
-
-  return parsed.success ? parsed.data : leadFiltersSchema.parse({})
 }
 
 function formatBudget(min: unknown, max: unknown): string {

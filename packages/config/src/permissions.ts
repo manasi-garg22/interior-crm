@@ -29,6 +29,8 @@ export const PERMISSIONS = [
   'lead:update',
   'lead:assign',
   'lead:delete',
+  /** Change a WON lead's deal value after it has been locked. */
+  'lead:won_value:edit',
 
   'customer:read',
   'customer:update',
@@ -117,6 +119,7 @@ const VIEWER_PERMISSIONS: Permission[] = [
 const ADMIN_PERMISSIONS: Permission[] = [
   ...SALES_MANAGER_PERMISSIONS,
   'lead:delete',
+  'lead:won_value:edit',
   'campaign:manage',
   'user:manage',
   'settings:manage',

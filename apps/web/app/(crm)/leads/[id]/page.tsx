@@ -11,6 +11,7 @@ import { LeadActionPanel } from '@/components/crm/lead-actions'
 import { DocumentPanel } from '@/components/crm/document-panel'
 import { StatusBadge, TemperatureBadge, titleCase } from '@/components/ui/badge'
 import { formatDate, formatDateTime } from '@/lib/time'
+import { formatInr } from '@/lib/estimate/types'
 
 export const metadata: Metadata = { title: 'Lead' }
 export const dynamic = 'force-dynamic'
@@ -29,6 +30,7 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
   const assignees = canAssign || can(role, 'followup:create') ? await listAssignableUsers() : []
 
   const requirement = lead.requirement
+  const wonValue = lead.wonValue != null ? Number(lead.wonValue) : null
   const breakdown = (lead.scoreBreakdown as ScoreContribution[] | null) ?? []
 
   return (
@@ -70,6 +72,11 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
       <div className="mb-6 flex flex-wrap items-center gap-2">
         <StatusBadge status={lead.status} />
         <TemperatureBadge temperature={lead.temperature} />
+        {wonValue != null ? (
+          <span className="rounded-full bg-success-soft px-2.5 py-1 text-xs font-medium text-success">
+            Deal value {formatInr(wonValue)} · locked
+          </span>
+        ) : null}
         <span className="text-sm text-ink-muted">Score {lead.score}/100</span>
         <span className="text-sm text-ink-muted">· {titleCase(lead.source)}</span>
         {lead.isRepeatEnquiry ? (
@@ -140,7 +147,7 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
               {requirement.notes ? (
                 <div className="pt-2">
                   <p className="text-sm text-ink-muted">In their words</p>
-                  <p className="mt-1 whitespace-pre-wrap text-[0.9375rem] leading-relaxed">
+                  <p className="mt-1 text-[0.9375rem] leading-relaxed whitespace-pre-wrap">
                     {requirement.notes}
                   </p>
                 </div>
@@ -157,11 +164,11 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
                   <li key={activity.id} className="relative">
                     <span
                       aria-hidden
-                      className="absolute -left-[1.4375rem] top-1.5 size-2 rounded-full bg-line-strong"
+                      className="absolute top-1.5 -left-[1.4375rem] size-2 rounded-full bg-line-strong"
                     />
                     <p className="text-[0.9375rem] font-medium">{activity.title}</p>
                     {activity.description ? (
-                      <p className="mt-1 whitespace-pre-wrap text-sm text-ink-soft">
+                      <p className="mt-1 text-sm whitespace-pre-wrap text-ink-soft">
                         {activity.description}
                       </p>
                     ) : null}
@@ -195,6 +202,8 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
 
           <Card title="Ownership">
             <Detail label="Assigned to" value={lead.assignedTo?.name ?? 'Unassigned'} />
+            <Detail label="Deal value" value={wonValue != null ? formatInr(wonValue) : null} />
+            <Detail label="Won on" value={lead.wonAt ? formatDate(lead.wonAt) : null} />
             <Detail label="Campaign" value={lead.campaign?.name} />
             <Detail label="UTM source" value={lead.utmSource} />
             <Detail label="UTM campaign" value={lead.utmCampaign} />
@@ -235,10 +244,12 @@ export default async function LeadDetailPage(props: { params: Promise<{ id: stri
             currentStatus={lead.status}
             currentAssigneeId={lead.assignedToId}
             assignees={assignees.map((person) => ({ id: person.id, name: person.name }))}
+            wonValue={wonValue}
             permissions={{
               canAssign,
               canUpdate: can(role, 'lead:update'),
               canCreateFollowUp: can(role, 'followup:create'),
+              canEditWonValue: can(role, 'lead:won_value:edit'),
             }}
           />
         </div>

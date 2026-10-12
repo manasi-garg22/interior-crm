@@ -1,4 +1,4 @@
-import { prisma, type Prisma, type Customer } from '@crm/database'
+import { prisma, type Prisma, type Customer, type LeadStatus } from '@crm/database'
 
 /**
  * Customer data access.
@@ -96,49 +96,79 @@ export async function findCustomerById(id: string) {
   })
 }
 
-export async function listCustomerSummaries(options: {
+export type CustomerListOptions = {
   query: string | undefined
+  city?: string | undefined
+  source?: Customer['firstSource'] | undefined
+  /** Inclusive bounds on when the customer was first created. */
+  createdFrom?: Date | undefined
+  createdTo?: Date | undefined
+  /** Only customers who have at least one lead in this status. */
+  leadStatus?: LeadStatus | undefined
   /** When set, only customers with at least one lead owned by this user. */
   ownedByUserId: string | undefined
+  orderBy?: Prisma.CustomerOrderByWithRelationInput
+  skip?: number
   take?: number
-}) {
-  const { query, ownedByUserId, take = 100 } = options
+}
 
-  return prisma.customer.findMany({
-    where: {
-      deletedAt: null,
-      ...(ownedByUserId
-        ? { leads: { some: { assignedToId: ownedByUserId, deletedAt: null } } }
-        : {}),
-      ...(query
-        ? {
-            OR: [
-              { fullName: { contains: query, mode: 'insensitive' } },
-              { phone: { contains: query } },
-              { email: { contains: query, mode: 'insensitive' } },
-            ],
-          }
-        : {}),
-    },
-    orderBy: { createdAt: 'desc' },
-    take,
-    select: {
-      id: true,
-      fullName: true,
-      phone: true,
-      email: true,
-      city: true,
-      createdAt: true,
-      _count: { select: { leads: true, projects: true } },
-    },
-  })
+export async function listCustomerSummaries(options: CustomerListOptions) {
+  const { query, ownedByUserId, skip = 0, take = 25 } = options
+
+  const conditions: Prisma.CustomerWhereInput[] = [{ deletedAt: null }]
+
+  if (ownedByUserId) {
+    conditions.push({ leads: { some: { assignedToId: ownedByUserId, deletedAt: null } } })
+  }
+  if (query) {
+    conditions.push({
+      OR: [
+        { fullName: { contains: query, mode: 'insensitive' } },
+        { phone: { contains: query } },
+        { email: { contains: query, mode: 'insensitive' } },
+      ],
+    })
+  }
+  if (options.city) conditions.push({ city: { contains: options.city, mode: 'insensitive' } })
+  if (options.source) conditions.push({ firstSource: options.source })
+  if (options.leadStatus) {
+    conditions.push({ leads: { some: { status: options.leadStatus, deletedAt: null } } })
+  }
+  if (options.createdFrom || options.createdTo) {
+    conditions.push({
+      createdAt: {
+        ...(options.createdFrom ? { gte: options.createdFrom } : {}),
+        ...(options.createdTo ? { lte: options.createdTo } : {}),
+      },
+    })
+  }
+
+  const where: Prisma.CustomerWhereInput = { AND: conditions }
+
+  const [total, rows] = await Promise.all([
+    prisma.customer.count({ where }),
+    prisma.customer.findMany({
+      where,
+      orderBy: options.orderBy ?? { createdAt: 'desc' },
+      skip,
+      take,
+      select: {
+        id: true,
+        fullName: true,
+        phone: true,
+        email: true,
+        city: true,
+        createdAt: true,
+        _count: { select: { leads: true, projects: true } },
+      },
+    }),
+  ])
+
+  return { total, rows }
 }
 
 /** Used to decide whether a scoped user may open a customer at all. */
-export async function ownsAnyLeadFor(
-  customerId: string,
-  userId: string,
-): Promise<boolean> {
+export async function ownsAnyLeadFor(customerId: string, userId: string): Promise<boolean> {
   const lead = await prisma.lead.findFirst({
     where: { customerId, assignedToId: userId, deletedAt: null },
     select: { id: true },

@@ -17,6 +17,10 @@ export type DashboardCounts = {
   overdueFollowUps: number
   siteVisits: number
   wonProjects: number
+  /** Sum of locked deal values on WON leads, in INR. */
+  wonValueTotal: number
+  /** Same, for leads won since the 1st of this month (IST). */
+  wonValueThisMonth: number
 }
 
 export type Breakdown = { key: string; count: number }
@@ -58,6 +62,13 @@ export async function loadDashboard(
 
   const base: Prisma.LeadWhereInput = { AND: [{ deletedAt: null }, scope] }
 
+  // 1st of the current month at IST midnight (IST is a fixed +05:30).
+  const IST_OFFSET_MS = 330 * 60_000
+  const istNow = new Date(now.getTime() + IST_OFFSET_MS)
+  const startOfMonth = new Date(
+    Date.UTC(istNow.getUTCFullYear(), istNow.getUTCMonth(), 1) - IST_OFFSET_MS,
+  )
+
   const [
     totalLeads,
     newLeads,
@@ -71,6 +82,8 @@ export async function loadDashboard(
     byPropertyType,
     byBudget,
     recentLeads,
+    wonValueAll,
+    wonValueMonth,
   ] = await prisma.$transaction([
     prisma.lead.count({ where: base }),
     prisma.lead.count({ where: { AND: [base, { status: LeadStatus.NEW }] } }),
@@ -90,7 +103,12 @@ export async function loadDashboard(
       where: { AND: [followUpScope, { status: 'PENDING', scheduledAt: { lt: startOfToday } }] },
     }),
 
-    prisma.lead.groupBy({ by: ['source'], where: base, _count: { _all: true }, orderBy: { _count: { source: 'desc' } } }),
+    prisma.lead.groupBy({
+      by: ['source'],
+      where: base,
+      _count: { _all: true },
+      orderBy: { _count: { source: 'desc' } },
+    }),
     prisma.customer.groupBy({
       by: ['city'],
       where: { deletedAt: null, leads: { some: base } },
@@ -112,12 +130,18 @@ export async function loadDashboard(
     }),
 
     recentLeadsQuery(scope),
+
+    prisma.lead.aggregate({
+      where: { AND: [base, { status: LeadStatus.WON }] },
+      _sum: { wonValue: true },
+    }),
+    prisma.lead.aggregate({
+      where: { AND: [base, { status: LeadStatus.WON, wonAt: { gte: startOfMonth } }] },
+      _sum: { wonValue: true },
+    }),
   ])
 
-  const toBreakdown = <T extends Record<string, unknown>>(
-    rows: T[],
-    field: keyof T,
-  ): Breakdown[] =>
+  const toBreakdown = <T extends Record<string, unknown>>(rows: T[], field: keyof T): Breakdown[] =>
     rows
       .map((row) => ({
         key: String(row[field] ?? 'Unknown'),
@@ -132,6 +156,8 @@ export async function loadDashboard(
     hotLeads,
     siteVisits,
     wonProjects,
+    wonValueTotal: Number(wonValueAll._sum.wonValue ?? 0),
+    wonValueThisMonth: Number(wonValueMonth._sum.wonValue ?? 0),
     followUpsToday,
     overdueFollowUps,
     bySource: toBreakdown(bySource, 'source'),

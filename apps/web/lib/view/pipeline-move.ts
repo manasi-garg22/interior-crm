@@ -14,10 +14,7 @@ export type BoardColumn<TCard extends BoardCard = BoardCard> = {
   cards: TCard[]
 }
 
-export function findCard<T extends BoardCard>(
-  columns: BoardColumn<T>[],
-  cardId: string,
-): T | null {
+export function findCard<T extends BoardCard>(columns: BoardColumn<T>[], cardId: string): T | null {
   for (const column of columns) {
     const card = column.cards.find((item) => item.id === cardId)
     if (card) return card

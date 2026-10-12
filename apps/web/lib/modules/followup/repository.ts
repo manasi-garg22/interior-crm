@@ -25,14 +25,19 @@ export type FollowUpRow = Prisma.FollowUpGetPayload<{ include: typeof FOLLOW_UP_
 
 export async function listFollowUps(
   where: Prisma.FollowUpWhereInput,
-  take = 200,
+  options: { skip?: number; take?: number; orderBy?: Prisma.FollowUpOrderByWithRelationInput } = {},
 ): Promise<FollowUpRow[]> {
   return prisma.followUp.findMany({
     where,
-    orderBy: { scheduledAt: 'asc' },
-    take,
+    orderBy: options.orderBy ?? { scheduledAt: 'asc' },
+    skip: options.skip ?? 0,
+    take: options.take ?? 200,
     include: FOLLOW_UP_INCLUDE,
   })
+}
+
+export async function countFollowUps(where: Prisma.FollowUpWhereInput): Promise<number> {
+  return prisma.followUp.count({ where })
 }
 
 export async function findFollowUpById(id: string): Promise<FollowUpRow | null> {
@@ -72,7 +77,10 @@ export async function countByBucket(
     }),
     prisma.followUp.count({
       where: {
-        AND: [scope, { status: 'PENDING', scheduledAt: { gte: startOfToday, lt: startOfTomorrow } }],
+        AND: [
+          scope,
+          { status: 'PENDING', scheduledAt: { gte: startOfToday, lt: startOfTomorrow } },
+        ],
       },
     }),
     prisma.followUp.count({

@@ -300,6 +300,12 @@ model Lead {
   wonAt            DateTime?
   lostAt           DateTime?
   lostReason       String?
+  /// Final deal value in INR, entered when the lead is marked WON. Locked
+  /// once set: only roles with `lead:won_value:edit` can change it, and every
+  /// change is audited.
+  wonValue         Decimal?  @db.Decimal(14, 2)
+  wonValueSetAt    DateTime?
+  wonValueSetById  String?
   /// Denormalized from FollowUp so the leads table and dashboard can sort and
   /// filter on it without a correlated subquery per row.
   nextFollowUpAt   DateTime?

@@ -1,9 +1,14 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { can, type Role } from '@crm/config'
 import { requireUser } from '@/lib/server/session'
-import { listBucket } from '@/lib/modules/followup/service'
+import { listBucket, parseFollowUpFilters } from '@/lib/modules/followup/service'
 import { isBucket, type Bucket } from '@/lib/modules/followup/buckets'
+import { listAssignableUsers } from '@/lib/modules/user/repository'
 import { PageHeader } from '@/components/crm/page-header'
+import { ListFilters } from '@/components/crm/list-filters'
+import { Pagination, pageFrom, type SearchParams } from '@/components/ui/pagination'
+import type { FilterField } from '@/lib/view/list-filters'
 import { FollowUpCard, type FollowUpCardData } from '@/components/crm/follow-up-card'
 import { EmptyState } from '@/components/ui/states'
 import { cn } from '@/lib/utils/cn'
@@ -29,17 +34,76 @@ const EMPTY_COPY: Record<Bucket, { title: string; description: string }> = {
   completed: { title: 'Nothing completed yet', description: 'Closed follow-ups appear here.' },
 }
 
-export default async function FollowUpsPage(props: {
-  searchParams: Promise<{ bucket?: string; overdue?: string }>
-}) {
+const titleCase = (value: string): string =>
+  value
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ')
+
+export default async function FollowUpsPage(props: { searchParams: Promise<SearchParams> }) {
   const user = await requireUser('/follow-ups')
-  const { bucket: rawBucket, overdue } = await props.searchParams
+  const searchParams = await props.searchParams
+  const rawBucket = typeof searchParams.bucket === 'string' ? searchParams.bucket : undefined
 
   // The dashboard links here with ?overdue=1; honour that as a bucket.
-  const bucket: Bucket = isBucket(rawBucket) ? rawBucket : overdue ? 'overdue' : 'today'
+  const bucket: Bucket = isBucket(rawBucket)
+    ? rawBucket
+    : searchParams.overdue
+      ? 'overdue'
+      : 'today'
 
-  const { rows, counts } = await listBucket(bucket, user)
-  const empty = EMPTY_COPY[bucket]
+  const canSeeAll = can(user.role as Role, 'followup:read:all')
+  const filters = parseFollowUpFilters(searchParams)
+  const [result, assignees] = await Promise.all([
+    listBucket(bucket, user, filters, pageFrom(searchParams)),
+    canSeeAll ? listAssignableUsers() : Promise.resolve([]),
+  ])
+  const { rows, counts } = result
+  const filtered = Boolean(filters.q || filters.type || filters.temperature || filters.assignedToId)
+  const empty = filtered
+    ? { title: 'No follow-ups match', description: 'Try a different search or clear the filters.' }
+    : EMPTY_COPY[bucket]
+
+  const fields: FilterField[] = [
+    {
+      kind: 'select',
+      key: 'type',
+      label: 'Type',
+      options: ['CALL', 'WHATSAPP', 'EMAIL', 'MEETING', 'SITE_VISIT'].map((value) => ({
+        value,
+        label: titleCase(value),
+      })),
+    },
+    {
+      kind: 'select',
+      key: 'temperature',
+      label: 'Temperature',
+      options: ['HOT', 'WARM', 'COLD'].map((value) => ({ value, label: titleCase(value) })),
+    },
+    ...(canSeeAll
+      ? [
+          {
+            kind: 'select' as const,
+            key: 'assignedToId',
+            label: 'Owner',
+            anyLabel: 'Owner: anyone',
+            options: assignees.map((person) => ({ value: person.id, label: person.name })),
+          },
+        ]
+      : []),
+  ]
+
+  // Queue tabs keep the active filters but start again from page 1.
+  const tabHref = (id: Bucket): string => {
+    const params = new URLSearchParams()
+    for (const key of ['q', 'type', 'temperature', 'assignedToId']) {
+      const value = searchParams[key]
+      if (typeof value === 'string' && value) params.set(key, value)
+    }
+    params.set('bucket', id)
+    return `/follow-ups?${params.toString()}`
+  }
 
   return (
     <>
@@ -56,7 +120,7 @@ export default async function FollowUpsPage(props: {
           return (
             <Link
               key={item.id}
-              href={`/follow-ups?bucket=${item.id}`}
+              href={tabHref(item.id)}
               aria-current={active ? 'page' : undefined}
               className={cn(
                 'inline-flex min-h-11 items-center gap-2 rounded-[2px] border px-4 text-sm transition-colors',
@@ -83,14 +147,32 @@ export default async function FollowUpsPage(props: {
         })}
       </nav>
 
+      <ListFilters
+        basePath="/follow-ups"
+        searchPlaceholder="Search customer name, phone or lead number"
+        fields={fields}
+        preserveKeys={['bucket', 'overdue']}
+      />
+
       {rows.length === 0 ? (
         <EmptyState title={empty.title} description={empty.description} />
       ) : (
-        <ul className="space-y-3">
-          {rows.map((row) => (
-            <FollowUpCard key={row.id} followUp={toCardData(row)} />
-          ))}
-        </ul>
+        <>
+          <ul className="space-y-3">
+            {rows.map((row) => (
+              <FollowUpCard key={row.id} followUp={toCardData(row)} />
+            ))}
+          </ul>
+
+          <Pagination
+            basePath="/follow-ups"
+            page={result.page}
+            pageCount={result.pageCount}
+            total={result.total}
+            pageSize={result.pageSize}
+            searchParams={{ ...searchParams, bucket }}
+          />
+        </>
       )}
     </>
   )

@@ -11,17 +11,36 @@ import {
 
 const cuid = z.string().cuid()
 
+/** A final deal value in INR: positive, at most ₹1,000 crore, paise precision. */
+export const dealValueSchema = z
+  .number({ message: 'Enter the deal amount in ₹' })
+  .positive('Enter the deal amount in ₹')
+  .max(10_000_000_000, 'That amount looks too large')
+  .transform((value) => Math.round(value * 100) / 100)
+
 export const changeLeadStatusSchema = z
   .object({
     leadId: cuid,
     status: leadStatusSchema,
     note: z.string().trim().max(1000).optional(),
     lostReason: z.string().trim().max(200).optional(),
+    /**
+     * Required by the service when moving to WON, unless the lead already
+     * has a locked value from an earlier win. Ignored for other statuses.
+     */
+    wonValue: dealValueSchema.optional(),
   })
   .refine((data) => data.status !== 'LOST' || Boolean(data.lostReason), {
     message: 'Record why this lead was lost',
     path: ['lostReason'],
   })
+
+/** Admin-only correction of a locked won value. */
+export const updateWonValueSchema = z.object({
+  leadId: cuid,
+  wonValue: dealValueSchema,
+  reason: z.string().trim().min(3, 'Say why the amount is changing').max(300),
+})
 
 export const assignLeadSchema = z.object({
   leadId: cuid,
@@ -104,7 +123,11 @@ export const leadFiltersSchema = z.object({
   campaignId: cuid.optional(),
   createdFrom: z.coerce.date().optional(),
   createdTo: z.coerce.date().optional(),
-  overdueFollowUp: z.coerce.boolean().optional(),
+  // Not z.coerce.boolean(): that turns the string "false" into true.
+  overdueFollowUp: z
+    .union([z.boolean(), z.enum(['1', '0', 'true', 'false'])])
+    .transform((value) => value === true || value === '1' || value === 'true')
+    .optional(),
   sortBy: leadSortFieldSchema.default('createdAt'),
   sortDir: z.enum(['asc', 'desc']).default('desc'),
   page: z.coerce.number().int().min(1).default(1),
