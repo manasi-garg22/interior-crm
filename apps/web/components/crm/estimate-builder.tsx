@@ -1,8 +1,10 @@
 'use client'
 
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Field, TextArea, TextInput } from '@/components/ui/field'
+import { Field, SelectInput, TextArea, TextInput } from '@/components/ui/field'
+import { recordQuotationAction } from '@/app/(crm)/estimates/actions'
 import { cn } from '@/lib/utils/cn'
 import {
   ROOM_TYPES,
@@ -45,10 +47,12 @@ function validate(draft: ItemDraft): string | null {
   if (!draft.roomType.trim()) return 'Choose or type a room type.'
   if (!draft.name.trim()) return 'Enter the item name.'
   const quantity = Number(draft.quantity)
-  if (!draft.quantity.trim() || !Number.isFinite(quantity) || quantity <= 0) return 'Quantity must be more than 0.'
+  if (!draft.quantity.trim() || !Number.isFinite(quantity) || quantity <= 0)
+    return 'Quantity must be more than 0.'
   if (!draft.unit.trim()) return 'Choose or type a unit.'
   const price = Number(draft.price)
-  if (!draft.price.trim() || !Number.isFinite(price) || price < 0) return 'Enter a unit price (0 or more).'
+  if (!draft.price.trim() || !Number.isFinite(price) || price < 0)
+    return 'Enter a unit price (0 or more).'
   return null
 }
 
@@ -73,7 +77,18 @@ function toDraft(item: EstimateItem): ItemDraft {
   }
 }
 
-export function EstimateBuilder() {
+export type BuilderCustomer = { id: string; name: string; phone: string; city: string | null }
+
+/**
+ * `customers` switches on CRM mode: picking a customer becomes mandatory and
+ * every downloaded PDF is recorded in the quotation register. The public
+ * /estimate page passes nothing and keeps working without a login.
+ */
+export function EstimateBuilder({ customers }: { customers?: BuilderCustomer[] } = {}) {
+  const router = useRouter()
+  const crmMode = customers !== undefined
+  const [customerQuery, setCustomerQuery] = useState('')
+  const [customerError, setCustomerError] = useState<string | null>(null)
   const [estimate, setEstimate] = useState<Estimate>(EMPTY)
   const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState<ItemDraft>(BLANK_DRAFT)
@@ -103,6 +118,7 @@ export function EstimateBuilder() {
       if (saved) {
         const parsed = JSON.parse(saved) as Partial<Estimate>
         restored = {
+          customerId: parsed.customerId ?? '',
           clientName: parsed.clientName ?? '',
           date: parsed.date || today(),
           remarks: parsed.remarks ?? '',
@@ -235,7 +251,12 @@ export function EstimateBuilder() {
         )
         return
       }
-      setEstimate({ ...result.estimate, date: result.estimate.date || today() })
+      // A PDF does not carry the CRM customer; keep the one already picked.
+      setEstimate((current) => ({
+        ...result.estimate,
+        customerId: current.customerId,
+        date: result.estimate.date || today(),
+      }))
       setEditingId(null)
       setDraft(BLANK_DRAFT)
       const count = result.estimate.items.length
@@ -248,13 +269,54 @@ export function EstimateBuilder() {
   }
 
   function startNew() {
-    if (estimate.items.length && !window.confirm('Start a new estimate? The current one will be cleared.')) return
-    setEstimate({ ...EMPTY, date: today() })
+    if (
+      estimate.items.length &&
+      !window.confirm('Start a new estimate? The current one will be cleared.')
+    )
+      return
+    setEstimate({ ...EMPTY, customerId: '', date: today() })
+    setCustomerQuery('')
     setEditingId(null)
     setDraft(BLANK_DRAFT)
   }
 
+  const selectedCustomer = customers?.find((customer) => customer.id === estimate.customerId)
+
+  // Filtered, but the selected customer always stays in the list.
+  const customerOptions = useMemo(() => {
+    if (!customers) return []
+    const term = customerQuery.trim().toLowerCase()
+    const matches = term
+      ? customers.filter(
+          (customer) =>
+            customer.name.toLowerCase().includes(term) ||
+            customer.phone.includes(term) ||
+            (customer.city ?? '').toLowerCase().includes(term),
+        )
+      : customers
+    const limited = matches.slice(0, 300)
+    if (selectedCustomer && !limited.includes(selectedCustomer)) limited.unshift(selectedCustomer)
+    return limited
+  }, [customers, customerQuery, selectedCustomer])
+
+  function chooseCustomer(id: string) {
+    const customer = customers?.find((c) => c.id === id)
+    setCustomerError(null)
+    setEstimate((current) => ({
+      ...current,
+      customerId: id,
+      // Prefill the printed name, but never overwrite one already typed.
+      clientName: current.clientName.trim() ? current.clientName : (customer?.name ?? ''),
+    }))
+  }
+
   function readyForPdf(): boolean {
+    if (crmMode && !selectedCustomer) {
+      setCustomerError('Choose the customer this is for.')
+      flash('Choose the customer first.')
+      document.getElementById('estimate-customer')?.focus()
+      return false
+    }
     if (!estimate.items.length) {
       flash('Add at least one item first.')
       return false
@@ -270,8 +332,33 @@ export function EstimateBuilder() {
     if (!readyForPdf()) return
     setExporting('download')
     try {
+      if (crmMode && selectedCustomer) {
+        // Recorded first, so the register never misses a PDF that was sent.
+        const result = await recordQuotationAction({
+          customerId: selectedCustomer.id,
+          kind,
+          clientName: estimate.clientName || undefined,
+          date: estimate.date || undefined,
+          remarks: estimate.remarks || undefined,
+          items: estimate.items.map((item) => ({
+            roomType: item.roomType,
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            price: item.price,
+          })),
+        })
+        if (!result.ok) {
+          flash(result.error)
+          return
+        }
+      }
       const { downloadEstimatePdf } = await import('@/lib/estimate/pdf')
       await downloadEstimatePdf(estimate, kind)
+      if (crmMode) {
+        flash(`${KIND_LABEL[kind]} saved for ${selectedCustomer?.name ?? 'the customer'}.`)
+        router.refresh()
+      }
     } catch {
       flash('Could not create the PDF. Please try again.')
     } finally {
@@ -358,6 +445,54 @@ export function EstimateBuilder() {
         {/* ── Client ─────────────────────────────────────────── */}
         <section className="border border-line bg-surface p-5 sm:p-6">
           <p className="eyebrow">Client</p>
+          {crmMode ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-[14rem_1fr] sm:items-end">
+              <Field label="Find customer">
+                {(field) => (
+                  <TextInput
+                    {...field}
+                    type="search"
+                    value={customerQuery}
+                    onChange={(event) => setCustomerQuery(event.target.value)}
+                    placeholder="Name, phone or city"
+                  />
+                )}
+              </Field>
+              <div className="space-y-2">
+                <label htmlFor="estimate-customer" className="block text-sm font-medium text-ink">
+                  Customer<span className="ml-1 text-accent">*</span>
+                </label>
+                <SelectInput
+                  id="estimate-customer"
+                  value={selectedCustomer ? selectedCustomer.id : ''}
+                  onChange={(event) => chooseCustomer(event.target.value)}
+                  invalid={Boolean(customerError)}
+                  aria-invalid={Boolean(customerError)}
+                  aria-describedby={customerError ? 'estimate-customer-error' : undefined}
+                  required
+                >
+                  <option value="">
+                    {customers.length === 0
+                      ? 'No customers yet'
+                      : customerOptions.length === 0
+                        ? 'No customer matches'
+                        : 'Choose a customer'}
+                  </option>
+                  {customerOptions.map((customer) => (
+                    <option key={customer.id} value={customer.id}>
+                      {customer.name} · {customer.phone}
+                      {customer.city ? ` · ${customer.city}` : ''}
+                    </option>
+                  ))}
+                </SelectInput>
+                {customerError ? (
+                  <p id="estimate-customer-error" role="alert" className="text-sm text-danger">
+                    {customerError}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          ) : null}
           <div className="mt-4 grid gap-5 sm:grid-cols-[1fr_12rem]">
             <Field label="Client / project name">
               {(field) => (
@@ -379,7 +514,6 @@ export function EstimateBuilder() {
                 />
               )}
             </Field>
-
           </div>
           <div className="mt-5">
             <Field label="Remarks" hint="Printed below the item table in the PDF.">
@@ -479,7 +613,8 @@ export function EstimateBuilder() {
               )}
               {Number.isFinite(draftTotal) && draftTotal > 0 ? (
                 <p className="text-ink-muted">
-                  Line total <span className="font-medium text-ink tabular-nums">{formatInr(draftTotal)}</span>
+                  Line total{' '}
+                  <span className="font-medium text-ink tabular-nums">{formatInr(draftTotal)}</span>
                 </p>
               ) : null}
             </div>
@@ -507,10 +642,12 @@ export function EstimateBuilder() {
               {groups.map((group) => (
                 <div key={group.roomType}>
                   <div className="flex items-baseline justify-between bg-accent-soft/60 px-5 py-2.5 sm:px-6">
-                    <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">
+                    <h3 className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">
                       {group.roomType}
                     </h3>
-                    <span className="text-sm font-medium tabular-nums">{formatInr(group.subtotal)}</span>
+                    <span className="text-sm font-medium tabular-nums">
+                      {formatInr(group.subtotal)}
+                    </span>
                   </div>
 
                   <ul className="divide-y divide-line">
@@ -532,16 +669,24 @@ export function EstimateBuilder() {
                           key={item.id}
                           className="group grid grid-cols-[1fr_auto] items-center gap-x-4 gap-y-2 px-5 py-3.5 transition-colors hover:bg-canvas sm:grid-cols-[1.6rem_1fr_auto_auto] sm:px-6"
                         >
-                          <span className="hidden text-sm text-ink-muted tabular-nums sm:block">{index + 1}</span>
+                          <span className="hidden text-sm text-ink-muted tabular-nums sm:block">
+                            {index + 1}
+                          </span>
                           <div className="min-w-0">
                             <p className="font-medium break-words">{item.name}</p>
                             <p className="text-sm text-ink-muted tabular-nums">
                               {item.quantity} {item.unit} × {formatInr(item.price)}
                             </p>
                           </div>
-                          <p className="text-right font-medium tabular-nums">{formatInr(lineTotal(item))}</p>
+                          <p className="text-right font-medium tabular-nums">
+                            {formatInr(lineTotal(item))}
+                          </p>
                           <div className="col-span-2 flex flex-wrap justify-end gap-1 sm:col-span-1">
-                            <IconButton label={`Move ${item.name} up`} onClick={() => move(item, -1)} disabled={index === 0}>
+                            <IconButton
+                              label={`Move ${item.name} up`}
+                              onClick={() => move(item, -1)}
+                              disabled={index === 0}
+                            >
                               ↑
                             </IconButton>
                             <IconButton
@@ -554,10 +699,17 @@ export function EstimateBuilder() {
                             <IconButton label={`Edit ${item.name}`} onClick={() => startEdit(item)}>
                               <Icon name="edit" />
                             </IconButton>
-                            <IconButton label={`Duplicate ${item.name}`} onClick={() => duplicate(item)}>
+                            <IconButton
+                              label={`Duplicate ${item.name}`}
+                              onClick={() => duplicate(item)}
+                            >
                               <Icon name="copy" />
                             </IconButton>
-                            <IconButton label={`Remove ${item.name}`} onClick={() => remove(item)} danger>
+                            <IconButton
+                              label={`Remove ${item.name}`}
+                              onClick={() => remove(item)}
+                              danger
+                            >
                               <Icon name="trash" />
                             </IconButton>
                           </div>
@@ -575,8 +727,12 @@ export function EstimateBuilder() {
       {/* ── Summary ──────────────────────────────────────────── */}
       <aside className="xl:sticky xl:top-8 xl:self-start">
         <div className="border border-line bg-ink p-6 text-ink-inverse">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-ink-inverse/60">Grand total</p>
-          <p className="mt-2 font-display text-4xl tracking-tight tabular-nums">{formatInr(total)}</p>
+          <p className="text-xs font-medium tracking-[0.18em] text-ink-inverse/60 uppercase">
+            Grand total
+          </p>
+          <p className="mt-2 font-display text-4xl tracking-tight tabular-nums">
+            {formatInr(total)}
+          </p>
 
           {groups.length > 0 ? (
             <ul className="mt-5 space-y-1.5 border-t border-ink-inverse/15 pt-4 text-sm">
@@ -628,7 +784,9 @@ export function EstimateBuilder() {
               disabled={exporting !== null}
             >
               <Icon name="download" />
-              {exporting === 'download' ? 'Preparing PDF…' : `Download ${KIND_LABEL[kind].toLowerCase()}`}
+              {exporting === 'download'
+                ? 'Preparing PDF…'
+                : `Download ${KIND_LABEL[kind].toLowerCase()}`}
             </Button>
             <Button
               size="lg"
@@ -637,7 +795,9 @@ export function EstimateBuilder() {
               disabled={exporting !== null}
             >
               <Icon name="eye" />
-              {exporting === 'preview' ? 'Preparing preview…' : `Preview ${KIND_LABEL[kind].toLowerCase()}`}
+              {exporting === 'preview'
+                ? 'Preparing preview…'
+                : `Preview ${KIND_LABEL[kind].toLowerCase()}`}
             </Button>
           </div>
           <button
@@ -649,8 +809,11 @@ export function EstimateBuilder() {
           </button>
         </div>
         <p className="mt-3 text-xs leading-relaxed text-ink-muted">
-          Saved automatically in this browser. Switch between Estimate and Bill any time — the
-          items stay the same.
+          {crmMode
+            ? 'Every download is added to the list below with its customer and amount. '
+            : ''}
+          Saved automatically in this browser. Switch between Estimate and Bill any time — the items
+          stay the same.
         </p>
       </aside>
 
@@ -705,7 +868,7 @@ function EditRow({
 
   return (
     <div onKeyDown={onKeyDown} className="space-y-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-accent">Editing item</p>
+      <p className="text-xs font-semibold tracking-[0.14em] text-accent uppercase">Editing item</p>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Room type">
           {(field) => (
@@ -769,7 +932,10 @@ function EditRow({
         </Field>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className={cn('text-sm', error ? 'text-danger' : 'text-ink-muted')} role={error ? 'alert' : undefined}>
+        <p
+          className={cn('text-sm', error ? 'text-danger' : 'text-ink-muted')}
+          role={error ? 'alert' : undefined}
+        >
           {error ?? (Number.isFinite(total) ? `Line total ${formatInr(total)}` : '')}
         </p>
         <div className="flex gap-2">
@@ -849,7 +1015,12 @@ function PreviewDialog({
   }, [onClose])
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-50 flex flex-col">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={title}
+      className="fixed inset-0 z-50 flex flex-col"
+    >
       <button
         type="button"
         aria-label="Close preview"

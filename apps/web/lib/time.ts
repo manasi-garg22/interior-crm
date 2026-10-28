@@ -79,3 +79,28 @@ export function localInputToIso(value: string): string {
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? value : date.toISOString()
 }
+
+/** "2026-10" for the current month in IST. */
+export function currentIstMonth(now: Date = new Date()): string {
+  const ist = new Date(now.getTime() + IST_OFFSET_MS)
+  return `${ist.getUTCFullYear()}-${String(ist.getUTCMonth() + 1).padStart(2, '0')}`
+}
+
+/**
+ * The instants bounding an IST calendar month, e.g. "2026-10" →
+ * 1 Oct 00:00 IST (inclusive) to 1 Nov 00:00 IST (exclusive).
+ * Returns null for anything that is not a valid yyyy-mm.
+ */
+export function istMonthRange(month: string): { from: Date; to: Date } | null {
+  const match = /^(\d{4})-(\d{2})$/.exec(month)
+  if (!match) return null
+  const year = Number(match[1])
+  const index = Number(match[2]) - 1
+  if (year < 2000 || year > 2100 || index < 0 || index > 11) return null
+  const offset = IST_OFFSET_MS
+  return {
+    from: new Date(Date.UTC(year, index, 1) - offset),
+    to: new Date(Date.UTC(year, index + 1, 1) - offset),
+  }
+}
+

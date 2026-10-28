@@ -147,6 +147,7 @@ export function ListFilters({
               )
 
             case 'date':
+            case 'month':
               return (
                 <label
                   key={field.key}
@@ -157,7 +158,7 @@ export function ListFilters({
                 >
                   {field.label}
                   <input
-                    type="date"
+                    type={field.kind}
                     value={value}
                     onChange={(event) => apply({ [field.key]: event.target.value })}
                     className="bg-transparent text-ink focus:outline-none"

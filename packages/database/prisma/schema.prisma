@@ -198,6 +198,7 @@ model User {
   auditLogs       AuditLog[]
   resetTokens     PasswordResetToken[]
   managedProjects Project[]
+  quotations      Quotation[]
 
   @@index([role, isActive])
   @@index([managerId])
@@ -249,6 +250,7 @@ model Customer {
   projects       Project[]
   documents      Document[]
   communications Communication[]
+  quotations     Quotation[]
 
   @@index([city])
   @@index([createdAt])
@@ -616,4 +618,39 @@ model AuditLog {
 
   @@index([entity, entityId, createdAt])
   @@index([actorId, createdAt])
+}
+
+// ──────────────────────────── quotations ───────────────────────────
+
+enum QuotationKind {
+  ESTIMATE
+  BILL
+}
+
+/// A record of every estimate / bill PDF downloaded from the cost-estimate
+/// tool in the CRM. The PDF itself is not stored (it can be regenerated from
+/// `items`); this is the register of what was sent, to whom, for how much.
+model Quotation {
+  id String @id @default(cuid())
+
+  kind       QuotationKind
+  customerId String
+  customer   Customer      @relation(fields: [customerId], references: [id])
+
+  /// "Client / project name" as printed on the PDF.
+  clientName   String?
+  /// The date printed on the PDF (calendar day).
+  documentDate DateTime? @db.Date
+  /// Grand total printed on the PDF, in INR.
+  total        Decimal   @db.Decimal(14, 2)
+  itemCount    Int
+  /// Snapshot of the items and remarks, so the document can be reproduced.
+  items        Json
+
+  createdById String
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([customerId])
 }

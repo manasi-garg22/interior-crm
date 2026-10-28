@@ -17,6 +17,8 @@ export type EstimateItem = {
 export type DocumentKind = 'estimate' | 'bill'
 
 export type Estimate = {
+  /** CRM customer the document is for (CRM tool only; not printed). */
+  customerId?: string
   clientName: string
   /** yyyy-mm-dd, as an <input type="date"> produces. */
   date: string

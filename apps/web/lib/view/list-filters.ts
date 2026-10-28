@@ -7,4 +7,5 @@ export type FilterField =
   | { kind: 'multi'; key: string; label: string; options: FilterOption[] }
   | { kind: 'text'; key: string; label: string; placeholder?: string }
   | { kind: 'date'; key: string; label: string }
+  | { kind: 'month'; key: string; label: string }
   | { kind: 'toggle'; key: string; label: string }
