@@ -89,6 +89,8 @@ export function EstimateBuilder({ customers }: { customers?: BuilderCustomer[] }
   const crmMode = customers !== undefined
   const [customerQuery, setCustomerQuery] = useState('')
   const [customerError, setCustomerError] = useState<string | null>(null)
+  /** Quotation only: download the PDF without choosing a customer or saving it to the portal. */
+  const [quotationOnly, setQuotationOnly] = useState(false)
   const [estimate, setEstimate] = useState<Estimate>(EMPTY)
   const [loaded, setLoaded] = useState(false)
   const [draft, setDraft] = useState<ItemDraft>(BLANK_DRAFT)
@@ -311,7 +313,7 @@ export function EstimateBuilder({ customers }: { customers?: BuilderCustomer[] }
   }
 
   function readyForPdf(): boolean {
-    if (crmMode && !selectedCustomer) {
+    if (crmMode && !quotationOnly && !selectedCustomer) {
       setCustomerError('Choose the customer this is for.')
       flash('Choose the customer first.')
       document.getElementById('estimate-customer')?.focus()
@@ -332,7 +334,7 @@ export function EstimateBuilder({ customers }: { customers?: BuilderCustomer[] }
     if (!readyForPdf()) return
     setExporting('download')
     try {
-      if (crmMode && selectedCustomer) {
+      if (crmMode && !quotationOnly && selectedCustomer) {
         // Recorded first, so the register never misses a PDF that was sent.
         const result = await recordQuotationAction({
           customerId: selectedCustomer.id,
@@ -355,7 +357,9 @@ export function EstimateBuilder({ customers }: { customers?: BuilderCustomer[] }
       }
       const { downloadEstimatePdf } = await import('@/lib/estimate/pdf')
       await downloadEstimatePdf(estimate, kind)
-      if (crmMode) {
+      if (crmMode && quotationOnly) {
+        flash(`${KIND_LABEL[kind]} downloaded. It was not saved to a customer.`)
+      } else if (crmMode) {
         flash(`${KIND_LABEL[kind]} saved for ${selectedCustomer?.name ?? 'the customer'}.`)
         router.refresh()
       }
@@ -446,6 +450,26 @@ export function EstimateBuilder({ customers }: { customers?: BuilderCustomer[] }
         <section className="border border-line bg-surface p-5 sm:p-6">
           <p className="eyebrow">Client</p>
           {crmMode ? (
+            <label className="mt-4 flex cursor-pointer items-start gap-3 border border-line bg-canvas px-4 py-3 text-sm">
+              <input
+                type="checkbox"
+                checked={quotationOnly}
+                onChange={(event) => {
+                  setQuotationOnly(event.target.checked)
+                  setCustomerError(null)
+                }}
+                className="mt-0.5 size-4"
+              />
+              <span>
+                <span className="font-medium">Quotation only</span>
+                <span className="block text-ink-muted">
+                  Download the PDF without a customer. It will not be saved to the customer
+                  register.
+                </span>
+              </span>
+            </label>
+          ) : null}
+          {crmMode && !quotationOnly ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-[14rem_1fr] sm:items-end">
               <Field label="Find customer">
                 {(field) => (
